@@ -198,4 +198,16 @@ export const api = {
       return get<BudgetVsActual[]>(`/reports/budget-vs-actual${qs ? `?${qs}` : ""}`)
     },
   },
+  autoCategorize: {
+    preview: () => get<{ predictions: AIPrediction[] }>("/auto-categorize/preview"),
+    apply: (mappings: { description: string; category: string }[]) =>
+      post("/auto-categorize/apply", { mappings }),
+  },
+}
+
+export interface AIPrediction {
+  description: string
+  category: string
+  confidence: number
+  count: number
 }

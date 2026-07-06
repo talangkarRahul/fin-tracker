@@ -11,3 +11,6 @@ wheels/
 # db files
 *.db
 uploads/
+
+# environment variables
+.env

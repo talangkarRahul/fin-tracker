@@ -745,6 +745,55 @@ def delete_category_rule(rule_id: int):
     session.close()
 
 
+def get_uncategorized_descriptions():
+    session = SessionLocal()
+    rows = (
+        session.query(
+            Transaction.description,
+            func.count(Transaction.id),
+        )
+        .filter(Transaction.category == "OTHER")
+        .group_by(Transaction.description)
+        .order_by(func.count(Transaction.id).desc())
+        .all()
+    )
+    session.close()
+    return [
+        {"description": desc, "count": count}
+        for desc, count in rows
+        if desc
+    ]
+
+
+def bulk_categorize_by_description(mappings: list[dict]):
+    session = SessionLocal()
+    updated = 0
+    rules_created = 0
+    for item in mappings:
+        desc = item["description"]
+        category = item["category"].strip().upper()
+        if not desc or not category:
+            continue
+        rows = (
+            session.query(Transaction)
+            .filter(Transaction.description == desc)
+            .all()
+        )
+        for tx in rows:
+            if tx.category != category:
+                tx.category = category
+                updated += 1
+        keyword = desc.lower().strip()
+        existing = session.query(CategoryRule).filter(CategoryRule.keyword == keyword).first()
+        if not existing:
+            rule = CategoryRule(keyword=keyword, category=category)
+            session.add(rule)
+            rules_created += 1
+    session.commit()
+    session.close()
+    return updated, rules_created
+
+
 # ── Reports ────────────────────────────────────────────
 
 

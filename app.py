@@ -2,6 +2,7 @@
 import os
 from datetime import date
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, Form
 from services import (
     monthly_summary,
@@ -42,7 +43,12 @@ from services import (
     get_unique_descriptions,
     get_dashboard_note,
     set_dashboard_note,
+    get_uncategorized_descriptions,
+    bulk_categorize_by_description,
 )
+from llm_classifier import classify_descriptions
+
+load_dotenv()
 
 
 @asynccontextmanager
@@ -290,6 +296,31 @@ def api_delete_category_rule(rule_id: int):
 @app.get("/api/descriptions")
 def api_get_descriptions():
     return _serialize(get_unique_descriptions())
+
+
+# ── Auto-Categorize with AI ──
+
+@app.get("/api/auto-categorize/preview")
+def api_auto_categorize_preview():
+    descriptions = get_uncategorized_descriptions()
+    descs = [d["description"] for d in descriptions]
+    if not descs:
+        return {"predictions": []}
+    predictions = classify_descriptions(descs)
+    lookup = {d["description"]: d["count"] for d in descriptions}
+    return {
+        "predictions": [
+            {**p, "count": lookup.get(p.get("description", ""), 0)}
+            for p in predictions
+        ]
+    }
+
+
+@app.post("/api/auto-categorize/apply")
+def api_auto_categorize_apply(data: dict):
+    mappings = data.get("mappings", [])
+    updated, rules_created = bulk_categorize_by_description(mappings)
+    return {"updated": updated, "rules_created": rules_created}
 
 
 # ── Dashboard Note ──

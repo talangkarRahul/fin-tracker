@@ -7,6 +7,7 @@ Track your income, expenses, budgets, goals, and recurring transactions. CSV imp
 ### Backend
 
 ```bash
+cp .env.example .env   # add your GROQ_API_KEY
 uv sync
 uv run uvicorn app:app --port 8000
 ```
