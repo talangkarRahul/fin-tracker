@@ -60,7 +60,10 @@ export interface Goal {
   target_amount: number; current_amount: number
   target_date: string; category: string | null
   notes: string | null; achieved: boolean
+  expected_return: number
   progress: { pct: number; remaining: number; days_left: number; on_track: boolean | null }
+  monthly_sip: number | null
+  inflation_adjusted_target: number | null
 }
 
 export interface Budget {
@@ -139,6 +142,19 @@ export const api = {
     update: (id: number, data: Partial<Goal>) => put<Goal>(`/goals/${id}`, data),
     delete: (id: number) => del(`/goals/${id}`),
     contribute: (id: number, amount: number) => post<Goal>(`/goals/${id}/contribute`, { amount }),
+    calculator: (params: {
+      target_amount: number; months: number
+      current_amount?: number; expected_return?: number; inflation_rate?: number
+    }) => {
+      const qs = new URLSearchParams({
+        target_amount: String(params.target_amount),
+        months: String(params.months),
+        current_amount: String(params.current_amount ?? 0),
+        expected_return: String(params.expected_return ?? 8),
+        inflation_rate: String(params.inflation_rate ?? 6),
+      }).toString()
+      return get<GoalCalculatorResult>(`/goals/calculator?${qs}`)
+    },
   },
   budgets: {
     list: () => get<Budget[]>("/budgets"),
@@ -203,6 +219,8 @@ export const api = {
     apply: (mappings: { description: string; category: string }[]) =>
       post("/auto-categorize/apply", { mappings }),
   },
+  getProfile: () => get<FinancialProfile>("/financial-profile"),
+  updateProfile: (data: Partial<FinancialProfile>) => put<FinancialProfile>("/financial-profile", data),
 }
 
 export interface AIPrediction {
@@ -210,4 +228,22 @@ export interface AIPrediction {
   category: string
   confidence: number
   count: number
+}
+
+export interface FinancialProfile {
+  id: number
+  age: number | null
+  income: number | null
+  monthly_expenses: number | null
+  dependents: number | null
+  existing_assets: Record<string, number> | null
+  existing_liabilities: Record<string, number> | null
+  tax_regime: "old" | "new" | null
+  risk_appetite: "low" | "moderate" | "high" | null
+  emergency_fund_months: number
+}
+
+export interface GoalCalculatorResult {
+  monthly_sip: number
+  inflation_adjusted_target: number
 }

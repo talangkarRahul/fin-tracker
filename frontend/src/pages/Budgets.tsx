@@ -41,44 +41,18 @@ export default function Budgets() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<Partial<Budget>>(emptyForm())
-  const [error, setError] = useState<string | null>(null)
-  const [motivation, setMotivation] = useState("")
-  const [saving, setSaving] = useState(false)
 
   async function load() {
     try {
-      setError(null)
       setBudgets(await api.budgets.list())
     } catch {
-      setError("Failed to load budgets")
+      // ignore
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => { load() }, [])
-
-  useEffect(() => {
-    api.getDashboardNote().then((n) => {
-      setMotivation(n.content)
-      setTimeout(() => {
-        const el = document.getElementById("motivation-textarea")
-        if (el) {
-          el.style.height = "auto"
-          el.style.height = el.scrollHeight + "px"
-        }
-      }, 0)
-    }).catch(() => {})
-  }, [])
-
-  async function saveMotivation() {
-    setSaving(true)
-    try {
-      await api.setDashboardNote(motivation)
-    } finally {
-      setSaving(false)
-    }
-  }
 
   function resetForm() {
     setForm(emptyForm())
@@ -106,7 +80,6 @@ export default function Budgets() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      setError(null)
       const payload = { ...form, end_date: form.end_date || null }
       if (editingId !== null) {
         await api.budgets.update(editingId, payload)
@@ -116,17 +89,16 @@ export default function Budgets() {
       resetForm()
       await load()
     } catch {
-      setError("Failed to save budget")
+      // ignore
     }
   }
 
   async function handleDelete(id: number) {
     try {
-      setError(null)
       await api.budgets.delete(id)
       await load()
     } catch {
-      setError("Failed to delete budget")
+      // ignore
     }
   }
 
@@ -140,39 +112,6 @@ export default function Budgets() {
           <p className="text-muted-foreground mt-1">Manage your spending limits</p>
         </div>
         {!showForm && <Button onClick={openNew}>New Budget</Button>}
-      </div>
-
-      {error && (
-        <div className="rounded-lg bg-destructive-light border border-destructive/30 text-destructive px-4 py-3 text-sm">
-          {error}
-        </div>
-      )}
-
-      <div className="bg-gradient-to-br from-primary-light/60 to-card border border-primary/20 rounded-xl px-5 py-4">
-        <div className="flex items-start gap-3">
-          <span className="text-lg mt-0.5">🎯</span>
-          <div className="flex-1">
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">My Goal</label>
-            <textarea
-              id="motivation-textarea"
-              value={motivation}
-              onChange={(e) => setMotivation(e.target.value)}
-              onInput={(e) => {
-                const el = e.currentTarget
-                el.style.height = "auto"
-                el.style.height = el.scrollHeight + "px"
-              }}
-              placeholder="What's your financial goal? Write something that keeps you motivated..."
-              rows={2}
-              className="w-full bg-transparent border-none resize-none text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none overflow-hidden"
-            />
-            <div className="flex justify-end">
-              <Button size="sm" variant="ghost" onClick={saveMotivation} disabled={saving}>
-                {saving ? "Saving..." : "Save"}
-              </Button>
-            </div>
-          </div>
-        </div>
       </div>
 
       {showForm && (

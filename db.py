@@ -68,6 +68,12 @@ def _run_migrations():
             conn.commit()
             break
 
+    # Migrate expected_return column in goals
+    cursor = conn.execute("PRAGMA table_info(goals)")
+    goals_cols = {row[1] for row in cursor.fetchall()}
+    if "expected_return" not in goals_cols:
+        conn.execute("ALTER TABLE goals ADD COLUMN expected_return FLOAT DEFAULT 8.0")
+
     conn.close()
 
 

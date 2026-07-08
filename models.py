@@ -47,6 +47,7 @@ class Goal(Base):
     category = Column(String(50))
     notes = Column(Text)
     achieved = Column(Boolean, default=False)
+    expected_return = Column(Float, default=8.0)
 
 
 class CategoryRule(Base):
@@ -77,3 +78,83 @@ class DashboardNote(Base):
 
     id = Column(Integer, primary_key=True)
     content = Column(Text, default="")
+
+
+class FinancialProfile(Base):
+    __tablename__ = "financial_profiles"
+
+    id = Column(Integer, primary_key=True)
+    age = Column(Integer)
+    income = Column(Float)
+    monthly_expenses = Column(Float)
+    dependents = Column(Integer)
+    existing_assets = Column(Text)
+    existing_liabilities = Column(Text)
+    tax_regime = Column(String(10))
+    risk_appetite = Column(String(10))
+    emergency_fund_months = Column(Integer, default=6)
+
+
+class EmergencyFund(Base):
+    __tablename__ = "emergency_fund"
+
+    id = Column(Integer, primary_key=True)
+    target_months = Column(Float, default=6)
+    monthly_expenses = Column(Float, default=0)
+    current_amount = Column(Float, default=0)
+
+
+class NetWorthSnapshot(Base):
+    __tablename__ = "net_worth_snapshots"
+
+    id = Column(Integer, primary_key=True)
+    date = Column(Date, nullable=False)
+    total_assets = Column(Float, default=0)
+    total_liabilities = Column(Float, default=0)
+    net_worth = Column(Float, default=0)
+    breakdown = Column(Text)
+
+
+class InsurancePolicy(Base):
+    __tablename__ = "insurance_policies"
+
+    id = Column(Integer, primary_key=True)
+    policy_type = Column(String(30), nullable=False)
+    provider = Column(String(100))
+    policy_number = Column(String(100))
+    sum_insured = Column(Float, default=0)
+    premium_amount = Column(Float, default=0)
+    premium_frequency = Column(String(20), default="yearly")
+    start_date = Column(Date)
+    end_date = Column(Date)
+    nominee = Column(String(100))
+    notes = Column(Text)
+    active = Column(Boolean, default=True)
+
+
+class Investment(Base):
+    __tablename__ = "investments"
+
+    id = Column(Integer, primary_key=True)
+    investment_type = Column(String(30), nullable=False)
+    name = Column(String(200), nullable=False)
+    amount_invested = Column(Float, default=0)
+    current_value = Column(Float, default=0)
+    purchase_date = Column(Date)
+    sip_amount = Column(Float, default=0)
+    sip_frequency = Column(String(20))
+    notes = Column(Text)
+    active = Column(Boolean, default=True)
+
+
+class RetirementPlan(Base):
+    __tablename__ = "retirement_plans"
+
+    id = Column(Integer, primary_key=True)
+    retirement_age = Column(Integer, default=60)
+    life_expectancy = Column(Integer, default=85)
+    expected_inflation = Column(Float, default=6.0)
+    pre_retirement_return = Column(Float, default=8.0)
+    post_retirement_return = Column(Float, default=6.0)
+    monthly_expenses_override = Column(Float)
+    current_corpus = Column(Float, default=0)

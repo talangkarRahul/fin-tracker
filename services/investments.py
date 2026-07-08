@@ -1,0 +1,121 @@
+from db import SessionLocal
+from models import Investment
+from services.common import _parse_date
+
+INVESTMENT_TYPES = [
+    "mutual_fund", "stock", "fd", "ppf", "epf",
+    "nps", "gold", "sgb", "bonds", "other",
+]
+
+
+def get_investments():
+    session = SessionLocal()
+    items = session.query(Investment).order_by(Investment.purchase_date.desc()).all()
+    session.close()
+    return [_enrich(i) for i in items]
+
+
+def get_investment(item_id: int):
+    session = SessionLocal()
+    item = session.query(Investment).filter(Investment.id == item_id).first()
+    session.close()
+    return _enrich(item) if item else None
+
+
+def create_investment(data: dict):
+    session = SessionLocal()
+    item = Investment(
+        investment_type=data.get("investment_type", "other"),
+        name=data["name"],
+        amount_invested=data.get("amount_invested", 0),
+        current_value=data.get("current_value", 0),
+        purchase_date=_parse_date(data.get("purchase_date")),
+        sip_amount=data.get("sip_amount", 0),
+        sip_frequency=data.get("sip_frequency"),
+        notes=data.get("notes"),
+        active=data.get("active", True),
+    )
+    session.add(item)
+    session.commit()
+    session.refresh(item)
+    session.close()
+    return _enrich(item)
+
+
+def update_investment(item_id: int, data: dict):
+    session = SessionLocal()
+    item = session.query(Investment).filter(Investment.id == item_id).first()
+    if not item:
+        session.close()
+        return None
+    for key in ("investment_type", "name", "amount_invested", "current_value",
+                "purchase_date", "sip_amount", "sip_frequency", "notes", "active"):
+        if key in data:
+            value = _parse_date(data[key]) if key.endswith("_date") else data[key]
+            setattr(item, key, value)
+    session.commit()
+    session.refresh(item)
+    session.close()
+    return _enrich(item)
+
+
+def delete_investment(item_id: int):
+    session = SessionLocal()
+    item = session.query(Investment).filter(Investment.id == item_id).first()
+    if item:
+        session.delete(item)
+        session.commit()
+    session.close()
+
+
+def get_investment_summary():
+    session = SessionLocal()
+    items = session.query(Investment).all()
+    session.close()
+
+    total_invested = 0
+    total_current = 0
+    by_type = {}
+
+    for i in items:
+        if not i.active:
+            continue
+        total_invested += i.amount_invested or 0
+        total_current += i.current_value or 0
+        t = i.investment_type
+        if t not in by_type:
+            by_type[t] = {"invested": 0, "current": 0, "count": 0}
+        by_type[t]["invested"] += i.amount_invested or 0
+        by_type[t]["current"] += i.current_value or 0
+        by_type[t]["count"] += 1
+
+    gain = round(total_current - total_invested, 2)
+    gain_pct = round((gain / total_invested) * 100, 1) if total_invested > 0 else 0
+
+    return {
+        "total_invested": round(total_invested, 2),
+        "total_current": round(total_current, 2),
+        "gain": gain,
+        "gain_pct": gain_pct,
+        "active_count": sum(1 for i in items if i.active),
+        "by_type": by_type,
+    }
+
+
+def _enrich(i: Investment):
+    gain = round((i.current_value or 0) - (i.amount_invested or 0), 2)
+    gain_pct = round((gain / (i.amount_invested or 1)) * 100, 1)
+    return {
+        "id": i.id,
+        "investment_type": i.investment_type,
+        "name": i.name,
+        "amount_invested": i.amount_invested,
+        "current_value": i.current_value,
+        "gain": gain,
+        "gain_pct": gain_pct,
+        "purchase_date": i.purchase_date.isoformat() if i.purchase_date else None,
+        "sip_amount": i.sip_amount,
+        "sip_frequency": i.sip_frequency,
+        "notes": i.notes,
+        "active": i.active,
+    }
