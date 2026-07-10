@@ -5,6 +5,7 @@ from services import (
     get_transactions, create_transaction, update_transaction, delete_transaction,
     import_csv_generic, import_icici_csv,
 )
+from services.pdf_import import parse_pdf_preview, import_pdf_with_mapping
 from routes.common import serialize
 
 router = APIRouter()
@@ -45,3 +46,25 @@ async def api_import_statement(file: UploadFile = File(...), mapping: str = Form
     else:
         import_icici_csv(file_path)
         return {"status": "ok", "file": file.filename}
+
+
+@router.post("/api/import/pdf-preview")
+async def api_import_pdf_preview(file: UploadFile = File(...)):
+    os.makedirs("uploads", exist_ok=True)
+    file_path = f"uploads/{file.filename}"
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+    result = parse_pdf_preview(file_path)
+    print(f"PDF preview result: {result}")
+    return result
+
+
+@router.post("/api/import/pdf")
+async def api_import_pdf(file: UploadFile = File(...), mapping: str = Form("")):
+    os.makedirs("uploads", exist_ok=True)
+    file_path = f"uploads/{file.filename}"
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+    mapping_dict = json.loads(mapping)
+    count = import_pdf_with_mapping(file_path, mapping_dict)
+    return {"status": "ok", "file": file.filename, "imported": count}

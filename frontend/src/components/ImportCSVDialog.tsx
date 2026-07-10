@@ -30,7 +30,10 @@ interface Props {
   onImported: () => void
 }
 
+type ImportMode = "csv" | "pdf"
+
 export default function ImportCSVDialog({ onClose, onImported }: Props) {
+  const [mode, setMode] = useState<ImportMode>("csv")
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string[][] | null>(null)
   const [columns, setColumns] = useState<string[]>([])
@@ -46,57 +49,111 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
   const [importing, setImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [useSplit, setUseSplit] = useState(false)
+  const [pdfParsing, setPdfParsing] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  function handleFile(f: File) {
+  async function handleFile(f: File) {
     setFile(f)
     setError(null)
-    const reader = new FileReader()
-    reader.onload = () => {
-      const text = reader.result as string
-      const rows = parseCSV(text)
-      if (rows.length < 2) {
-        setError("CSV file appears empty or invalid")
-        return
+    setPreview(null)
+    setColumns([])
+
+    if (mode === "csv") {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const text = reader.result as string
+        const rows = parseCSV(text)
+        if (rows.length < 2) {
+          setError("CSV file appears empty or invalid")
+          return
+        }
+        const cols = rows[0]
+        setColumns(cols)
+        setPreview(rows.slice(1, 6))
+
+        const auto: ColumnMapping = {
+          date_column: "",
+          description_column: "",
+          amount_column: "",
+          debit_column: "",
+          credit_column: "",
+          balance_column: "",
+          date_format: "dayfirst",
+        }
+        const lower = cols.map((c) => c.toLowerCase())
+        const dateIdx = lower.findIndex(
+          (c) => c.includes("date") || c.includes("dt") || c === "transaction date"
+        )
+        const descIdx = lower.findIndex((c) => c.includes("desc") || c.includes("remark") || c.includes("narrative") || c.includes("particular"))
+        const amtIdx = lower.findIndex((c) => c === "amount" || c.includes("amount") && !c.includes("withdrawal") && !c.includes("deposit"))
+        const debitIdx = lower.findIndex((c) => c.includes("withdrawal") || c.includes("debit") || c.includes("dr") || c.includes("withdrawn"))
+        const creditIdx = lower.findIndex((c) => c.includes("deposit") || c.includes("credit") || c.includes("cr"))
+        const balIdx = lower.findIndex((c) => c.includes("balance") || c === "bal")
+
+        if (dateIdx >= 0) auto.date_column = cols[dateIdx]
+        if (descIdx >= 0) auto.description_column = cols[descIdx]
+        if (amtIdx >= 0) auto.amount_column = cols[amtIdx]
+        if (debitIdx >= 0) auto.debit_column = cols[debitIdx]
+        if (creditIdx >= 0) auto.credit_column = cols[creditIdx]
+        if (balIdx >= 0) auto.balance_column = cols[balIdx]
+
+        if (auto.debit_column || auto.credit_column) {
+          setUseSplit(true)
+          auto.amount_column = ""
+        }
+
+        setMapping(auto)
       }
-      const cols = rows[0]
-      setColumns(cols)
-      setPreview(rows.slice(1, 6))
+      reader.readAsText(f)
+    } else {
+      setPdfParsing(true)
+      try {
+        const result = await api.importPDFPreview(f)
+        if (result.columns.length === 0) {
+          setError("Could not extract any table from this PDF. Ensure it is a GPay statement PDF.")
+          return
+        }
+        setColumns(result.columns)
+        setPreview(result.rows)
 
-      const auto: ColumnMapping = {
-        date_column: "",
-        description_column: "",
-        amount_column: "",
-        debit_column: "",
-        credit_column: "",
-        balance_column: "",
-        date_format: "dayfirst",
+        const auto: ColumnMapping = {
+          date_column: "",
+          description_column: "",
+          amount_column: "",
+          debit_column: "",
+          credit_column: "",
+          balance_column: "",
+          date_format: "dayfirst",
+        }
+        const lower = result.columns.map((c) => c.toLowerCase())
+        const dateIdx = lower.findIndex(
+          (c) => c.includes("date") || c.includes("dt") || c === "transaction date"
+        )
+        const descIdx = lower.findIndex((c) => c.includes("desc") || c.includes("remark") || c.includes("narrative") || c.includes("particular") || c.includes("details") || c.includes("transaction"))
+        const amtIdx = lower.findIndex((c) => c === "amount" || c.includes("amount") && !c.includes("withdrawal") && !c.includes("deposit"))
+        const debitIdx = lower.findIndex((c) => c.includes("withdrawal") || c.includes("debit") || c.includes("dr") || c.includes("withdrawn"))
+        const creditIdx = lower.findIndex((c) => c.includes("deposit") || c.includes("credit") || c.includes("cr"))
+        const balIdx = lower.findIndex((c) => c.includes("balance") || c === "bal")
+
+        if (dateIdx >= 0) auto.date_column = result.columns[dateIdx]
+        if (descIdx >= 0) auto.description_column = result.columns[descIdx]
+        if (amtIdx >= 0) auto.amount_column = result.columns[amtIdx]
+        if (debitIdx >= 0) auto.debit_column = result.columns[debitIdx]
+        if (creditIdx >= 0) auto.credit_column = result.columns[creditIdx]
+        if (balIdx >= 0) auto.balance_column = result.columns[balIdx]
+
+        if (auto.debit_column || auto.credit_column) {
+          setUseSplit(true)
+          auto.amount_column = ""
+        }
+
+        setMapping(auto)
+      } catch {
+        setError("Failed to parse PDF. Ensure it is a valid GPay statement PDF.")
+      } finally {
+        setPdfParsing(false)
       }
-      const lower = cols.map((c) => c.toLowerCase())
-      const dateIdx = lower.findIndex(
-        (c) => c.includes("date") || c.includes("dt") || c === "transaction date"
-      )
-      const descIdx = lower.findIndex((c) => c.includes("desc") || c.includes("remark") || c.includes("narrative") || c.includes("particular"))
-      const amtIdx = lower.findIndex((c) => c === "amount" || c.includes("amount") && !c.includes("withdrawal") && !c.includes("deposit"))
-      const debitIdx = lower.findIndex((c) => c.includes("withdrawal") || c.includes("debit") || c.includes("dr") || c.includes("withdrawn"))
-      const creditIdx = lower.findIndex((c) => c.includes("deposit") || c.includes("credit") || c.includes("cr"))
-      const balIdx = lower.findIndex((c) => c.includes("balance") || c === "bal")
-
-      if (dateIdx >= 0) auto.date_column = cols[dateIdx]
-      if (descIdx >= 0) auto.description_column = cols[descIdx]
-      if (amtIdx >= 0) auto.amount_column = cols[amtIdx]
-      if (debitIdx >= 0) auto.debit_column = cols[debitIdx]
-      if (creditIdx >= 0) auto.credit_column = cols[creditIdx]
-      if (balIdx >= 0) auto.balance_column = cols[balIdx]
-
-      if (auto.debit_column || auto.credit_column) {
-        setUseSplit(true)
-        auto.amount_column = ""
-      }
-
-      setMapping(auto)
     }
-    reader.readAsText(f)
   }
 
   function set(col: keyof ColumnMapping, value: string) {
@@ -112,6 +169,24 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
     }
   }
 
+  function switchMode(m: ImportMode) {
+    setMode(m)
+    setFile(null)
+    setPreview(null)
+    setColumns([])
+    setError(null)
+    setMapping({
+      date_column: "",
+      description_column: "",
+      amount_column: "",
+      debit_column: "",
+      credit_column: "",
+      balance_column: "",
+      date_format: "dayfirst",
+    })
+    setUseSplit(false)
+  }
+
   async function handleImport() {
     if (!file) return
     setImporting(true)
@@ -121,7 +196,8 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
       for (const [k, v] of Object.entries(mapping)) {
         if (v) clean[k] = v
       }
-      const result = await api.importCSV(file, clean as ColumnMapping)
+      const fn = mode === "csv" ? api.importCSV : api.importPDF
+      const result = await fn(file, clean as ColumnMapping)
       onImported()
       alert(`Imported ${result.imported} transactions`)
       onClose()
@@ -146,7 +222,7 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
       <div className="fixed inset-0 bg-black/40" onClick={onClose} />
       <Card className="relative w-full max-w-3xl max-h-full overflow-y-auto z-10">
         <CardHeader>
-          <CardTitle>Import CSV</CardTitle>
+          <CardTitle>Import Transactions</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
           {error && (
@@ -155,10 +231,32 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
             </div>
           )}
 
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Source:</span>
+            <button
+              type="button"
+              onClick={() => switchMode("csv")}
+              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                mode === "csv" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"
+              }`}
+            >
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("pdf")}
+              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                mode === "pdf" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"
+              }`}
+            >
+              PDF (GPay)
+            </button>
+          </div>
+
           <div>
             <input
               type="file"
-              accept=".csv"
+              accept={mode === "csv" ? ".csv" : ".pdf"}
               onChange={(e) => {
                 const f = e.target.files?.[0]
                 if (f) handleFile(f)
@@ -167,10 +265,14 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
               ref={fileRef}
             />
             <Button variant="outline" onClick={() => fileRef.current?.click()}>
-              {file ? "Change File" : "Select CSV File"}
+              {file ? "Change File" : `Select ${mode === "csv" ? "CSV" : "PDF"} File`}
             </Button>
             {file && <span className="ml-3 text-sm text-muted-foreground">{file.name}</span>}
           </div>
+
+          {pdfParsing && (
+            <div className="text-sm text-muted-foreground">Parsing PDF, please wait...</div>
+          )}
 
           {preview && columns.length > 0 && (
             <>
@@ -261,8 +363,8 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleImport} disabled={!isReady() || importing}>
-              {importing ? "Importing..." : file ? "Import" : "Select a file first"}
+            <Button onClick={handleImport} disabled={!isReady() || importing || pdfParsing}>
+              {importing ? "Importing..." : pdfParsing ? "Parsing..." : file ? "Import" : "Select a file first"}
             </Button>
           </div>
         </CardContent>

@@ -51,6 +51,25 @@ async function importCSV(file: File, mapping: ColumnMapping): Promise<{ status: 
   return res.json()
 }
 
+async function importPDFPreview(
+  file: File
+): Promise<{ columns: string[]; rows: string[][] }> {
+  const form = new FormData()
+  form.append("file", file)
+  const res = await fetch(`${BASE}/import/pdf-preview`, { method: "POST", body: form })
+  if (!res.ok) throw new Error(`POST /import/pdf-preview: ${res.status}`)
+  return res.json()
+}
+
+async function importPDF(file: File, mapping: ColumnMapping): Promise<{ status: string; imported: number }> {
+  const form = new FormData()
+  form.append("file", file)
+  form.append("mapping", JSON.stringify(mapping))
+  const res = await fetch(`${BASE}/import/pdf`, { method: "POST", body: form })
+  if (!res.ok) throw new Error(`POST /import/pdf: ${res.status}`)
+  return res.json()
+}
+
 export interface Summary {
   income: number; expenses: number; savings: number
 }
@@ -135,6 +154,8 @@ export const api = {
   updateTransaction: (id: number, data: Partial<Transaction>) => put<Transaction>(`/transactions/${id}`, data),
   deleteTransaction: (id: number) => del(`/transactions/${id}`),
   importCSV,
+  importPDFPreview,
+  importPDF,
   goals: {
     list: () => get<Goal[]>("/goals"),
     get: (id: number) => get<Goal>(`/goals/${id}`),

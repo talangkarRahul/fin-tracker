@@ -3,6 +3,7 @@ from models import Transaction
 from services.categories import categorize
 from services.common import _parse_date
 import pandas as pd
+from sqlalchemy import func
 
 
 def get_transactions():
@@ -81,6 +82,19 @@ def safe_float(value):
     return float(value)
 
 
+def _is_duplicate(session, date_val, description, amount):
+    existing = (
+        session.query(Transaction)
+        .filter(
+            Transaction.date == date_val,
+            func.lower(Transaction.description) == func.lower(description),
+            func.abs(Transaction.amount - amount) < 0.01,
+        )
+        .first()
+    )
+    return existing is not None
+
+
 def import_csv_generic(file_path, mapping):
     df = pd.read_csv(file_path)
     date_col = mapping.get("date_column")
@@ -135,6 +149,9 @@ def import_csv_generic(file_path, mapping):
             safe_float(row.get(balance_col)) if balance_col and balance_col in row else None
         )
 
+        if _is_duplicate(session, date_val, desc, amount):
+            continue
+
         tx = Transaction(
             date=date_val,
             description=desc,
@@ -174,20 +191,22 @@ def import_icici_csv(file_path):
             amount = -withdrawal
             tx_type = "EXPENSE"
 
+        date_val = pd.to_datetime(
+            row["Transaction Date"],
+            dayfirst=True,
+        ).date()
+        desc = str(row["Transaction Remarks"]).strip()
+
+        if _is_duplicate(session, date_val, desc, amount):
+            continue
+
         tx = Transaction(
-            date=pd.to_datetime(
-                row["Transaction Date"],
-                dayfirst=True,
-            ).date(),
-            description=str(
-                row["Transaction Remarks"]
-            ).strip(),
+            date=date_val,
+            description=desc,
             amount=amount,
             balance=balance,
             transaction_type=tx_type,
-            category=categorize(
-                str(row["Transaction Remarks"])
-            ),
+            category=categorize(desc),
         )
 
         session.add(tx)
