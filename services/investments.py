@@ -1,11 +1,27 @@
+import pandas as pd
 from db import SessionLocal
 from models import Investment
 from services.common import _parse_date
+from services.transactions import safe_float
 
 INVESTMENT_TYPES = [
     "mutual_fund", "stock", "fd", "ppf", "epf",
     "nps", "gold", "sgb", "bonds", "other",
 ]
+
+# Mapping from investment_type to profile asset label
+INVESTMENT_TO_ASSET_LABEL = {
+    "mutual_fund": "Mutual Funds",
+    "stock": "Stocks",
+    "ppf": "PPF",
+    "epf": "EPF",
+    "nps": "NPS",
+    "gold": "Gold / Jewelry",
+    "sgb": "SGB",
+    "bonds": "Bonds",
+    "fd": "Fixed Deposit",
+    "other": "Other Investments",
+}
 
 
 def get_investments():
@@ -100,6 +116,107 @@ def get_investment_summary():
         "active_count": sum(1 for i in items if i.active),
         "by_type": by_type,
     }
+
+
+def import_investments_csv(file_path, mapping=None):
+    df = pd.read_csv(file_path)
+
+    col_map = {
+        "name": "name",
+        "investment_type": "investment_type",
+        "amount_invested": "amount_invested",
+        "current_value": "current_value",
+        "purchase_date": "purchase_date",
+        "sip_amount": "sip_amount",
+        "sip_frequency": "sip_frequency",
+        "notes": "notes",
+        "active": "active",
+    }
+    if mapping:
+        col_map.update(mapping)
+
+    # Auto-detect columns by common names if not in mapping
+    for alias, field in [
+        ("name", "name"), ("scheme", "name"), ("fund", "name"),
+        ("type", "investment_type"), ("invested", "amount_invested"),
+        ("value", "current_value"), ("date", "purchase_date"),
+        ("sip", "sip_amount"),
+    ]:
+        if col_map[field] not in df.columns:
+            for col in df.columns:
+                if alias in col.lower():
+                    col_map[field] = col
+                    break
+
+    session = SessionLocal()
+    count = 0
+
+    for _, row in df.iterrows():
+        name = str(row.get(col_map["name"], "")).strip()
+        if not name:
+            continue
+
+        inv_type = str(row.get(col_map["investment_type"], "other")).strip().lower()
+        if inv_type not in INVESTMENT_TYPES:
+            inv_type = "other"
+
+        amount_invested = safe_float(row.get(col_map["amount_invested"]))
+        current_value = safe_float(row.get(col_map["current_value"]))
+
+        raw_date = row.get(col_map["purchase_date"])
+        purchase_date = None
+        if raw_date:
+            try:
+                purchase_date = pd.to_datetime(raw_date, dayfirst=True).date()
+            except Exception:
+                try:
+                    purchase_date = pd.to_datetime(raw_date).date()
+                except Exception:
+                    purchase_date = _parse_date(str(raw_date)) if raw_date else None
+
+        sip_amount = safe_float(row.get(col_map["sip_amount"]))
+        sip_frequency = str(row.get(col_map["sip_frequency"], "")).strip() or None
+        notes = str(row.get(col_map["notes"], "")).strip() or None
+
+        raw_active = row.get(col_map["active"])
+        active = True
+        if raw_active is not None:
+            if isinstance(raw_active, bool):
+                active = raw_active
+            elif isinstance(raw_active, str):
+                active = raw_active.strip().lower() in ("true", "yes", "1", "active", "y")
+
+        item = Investment(
+            investment_type=inv_type,
+            name=name,
+            amount_invested=amount_invested,
+            current_value=current_value,
+            purchase_date=purchase_date,
+            sip_amount=sip_amount,
+            sip_frequency=sip_frequency,
+            notes=notes,
+            active=active,
+        )
+        session.add(item)
+        count += 1
+
+    session.commit()
+    session.close()
+    return count
+
+
+def get_investment_assets():
+    """Aggregate active investments by type into asset label/value pairs."""
+    session = SessionLocal()
+    items = session.query(Investment).filter(Investment.active == True).all()
+    session.close()
+
+    totals: dict[str, float] = {}
+    for i in items:
+        label = INVESTMENT_TO_ASSET_LABEL.get(i.investment_type, i.investment_type.replace("_", " ").title())
+        totals[label] = totals.get(label, 0) + (i.current_value or 0)
+
+    return [{"label": k, "amount": round(v, 2)} for k, v in sorted(totals.items())]
 
 
 def _enrich(i: Investment):

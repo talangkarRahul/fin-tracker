@@ -3,6 +3,7 @@ from datetime import date
 from db import SessionLocal
 from models import FinancialProfile, EmergencyFund, Goal, Budget, Transaction
 from sqlalchemy import func
+from services.investments import get_investment_assets
 
 
 def compute_health_score():
@@ -64,6 +65,8 @@ def compute_health_score():
         pass
     if ef:
         total_assets += ef.current_amount or 0
+    # Include investments aggregated by type
+    total_assets += sum(a["amount"] for a in get_investment_assets())
     net_worth = total_assets - total_liabilities
     if net_worth > 0:
         nw_score = 100

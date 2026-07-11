@@ -3,6 +3,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card"
 import { Progress } from "../components/ui/progress"
 import { Button } from "../components/ui/button"
 import { formatCurrency } from "../lib/format"
+import {
+  PiggyBank, CalendarDays, TrendingUp, Target, Clock,
+  Banknote, Settings, Check, X, Sparkles, Calculator,
+  ArrowRightLeft, Info,
+} from "lucide-react"
 
 interface RetirementData {
   id: number
@@ -95,8 +100,8 @@ export default function Retirement() {
       <div className="space-y-6 animate-pulse">
         <div className="h-8 w-56 bg-muted rounded" />
         <div className="h-48 bg-muted rounded-xl" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-muted rounded-xl" />)}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {[1, 2, 3, 4].map((i) => <div key={i} className="h-20 bg-muted rounded-xl" />)}
         </div>
       </div>
     )
@@ -109,70 +114,109 @@ export default function Retirement() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Retirement Planner</h1>
-          <p className="text-muted-foreground mt-1">Plan your retirement corpus and savings target</p>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-primary/10 text-primary">
+            <PiggyBank size={22} />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Retirement Planner</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Plan your retirement corpus and savings target</p>
+          </div>
         </div>
         <Button variant="outline" onClick={() => setEditing(!editing)}>
+          {editing ? <X size={15} className="mr-1.5" /> : <Settings size={15} className="mr-1.5" />}
           {editing ? "Cancel" : "Adjust Assumptions"}
         </Button>
       </div>
 
-      <Card>
-        <CardContent className="pt-6 space-y-4">
+      {/* Progress card */}
+      <Card className="relative overflow-hidden">
+        <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b rounded-l-xl ${
+          onTrack ? "from-success to-success/60" : data.pct >= 50 ? "from-warning to-warning/60" : "from-destructive to-destructive/60"
+        }`} />
+        <CardContent className="pt-5 pb-5 px-4 space-y-4">
           <div className="flex justify-between items-end">
             <div>
-              <p className="text-sm text-muted-foreground">Current Corpus</p>
-              <p className="text-3xl font-bold text-foreground">{formatCurrency(data.current_corpus)}</p>
+              <p className="text-[10px] text-muted-foreground font-medium">Current Corpus</p>
+              <p className="text-2xl font-bold text-foreground">{formatCurrency(data.current_corpus)}</p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-muted-foreground">Corpus Needed</p>
-              <p className="text-2xl font-semibold text-foreground">{formatCurrency(data.corpus_needed)}</p>
+              <p className="text-[10px] text-muted-foreground font-medium">Corpus Needed</p>
+              <p className="text-xl font-semibold text-foreground">{formatCurrency(data.corpus_needed)}</p>
             </div>
           </div>
-          <Progress value={data.pct} className="h-3" barClassName={progressColor} />
-          <div className="flex justify-between text-sm">
+          <Progress value={data.pct} className="h-2.5" barClassName={progressColor} />
+          <div className="flex justify-between text-xs">
             <span className="text-muted-foreground">{data.pct}% funded</span>
             <span className="text-muted-foreground">{formatCurrency(data.gap)} gap</span>
           </div>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-sm text-muted-foreground">Monthly SIP Needed</p>
-            <p className="text-xl font-bold text-primary">{formatCurrency(data.monthly_sip_needed)}</p>
+      {/* SIP needed + stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="pt-4 pb-4 px-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10 text-primary shrink-0">
+              <Calculator size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground font-medium">Monthly SIP Needed</p>
+              <p className="text-sm font-bold text-primary">{formatCurrency(data.monthly_sip_needed)}</p>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-sm text-muted-foreground">Your Age</p>
-            <p className="text-xl font-bold text-foreground">{data.current_age}</p>
-            <p className="text-xs text-muted-foreground">Retire at {data.retirement_age}</p>
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="pt-4 pb-4 px-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-muted-foreground/10 text-muted-foreground shrink-0">
+              <Clock size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground font-medium">Your Age</p>
+              <p className="text-sm font-bold text-foreground">{data.current_age}</p>
+              <p className="text-[10px] text-muted-foreground">Retire at {data.retirement_age}</p>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-sm text-muted-foreground">Time to Retirement</p>
-            <p className="text-xl font-bold text-foreground">{data.years_to_retirement} yrs</p>
-            <p className="text-xs text-muted-foreground">{data.years_in_retirement} yrs in retirement</p>
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="pt-4 pb-4 px-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-muted-foreground/10 text-muted-foreground shrink-0">
+              <CalendarDays size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground font-medium">Time to Retirement</p>
+              <p className="text-sm font-bold text-foreground">{data.years_to_retirement} yrs</p>
+              <p className="text-[10px] text-muted-foreground">{data.years_in_retirement} yrs in retirement</p>
+            </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="pt-6 text-center">
-            <p className="text-sm text-muted-foreground">Monthly Expenses at Retirement</p>
-            <p className="text-xl font-bold text-foreground">{formatCurrency(data.monthly_expenses_at_retirement)}</p>
+        <Card className="hover:shadow-sm transition-shadow">
+          <CardContent className="pt-4 pb-4 px-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-muted-foreground/10 text-muted-foreground shrink-0">
+              <Banknote size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] text-muted-foreground font-medium">Monthly Expenses at Retirement</p>
+              <p className="text-sm font-bold text-foreground">{formatCurrency(data.monthly_expenses_at_retirement)}</p>
+            </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Assumptions form */}
       {editing && (
-        <Card>
-          <CardHeader><CardTitle>Assumptions</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <Card className="relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-primary/60 rounded-l-xl" />
+          <CardHeader className="pb-3 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Settings size={14} />
+              Assumptions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 px-4 pb-4 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-medium text-foreground mb-1">Retirement Age</label>
                 <input type="number" value={form.retirement_age} onChange={(e) => setForm({ ...form, retirement_age: e.target.value })}
@@ -205,72 +249,93 @@ export default function Retirement() {
               </div>
             </div>
             <Button onClick={handleSave} disabled={saving} size="sm">
+              <Check size={14} className="mr-1.5" />
               {saving ? "Saving..." : "Recalculate"}
             </Button>
           </CardContent>
         </Card>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader><CardTitle>Your Timeline</CardTitle></CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Current age</span>
-              <span className="font-medium text-foreground">{data.current_age}</span>
+      {/* Timeline + Financials */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Card className="relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-success to-success/60 rounded-l-xl" />
+          <CardHeader className="pb-3 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <CalendarDays size={14} />
+              Your Timeline
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 px-4 pb-4 space-y-2 text-sm">
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground text-xs">Current age</span>
+              <span className="font-medium text-foreground text-xs">{data.current_age}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Years until retirement</span>
-              <span className="font-medium text-foreground">{data.years_to_retirement}</span>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground text-xs">Years until retirement</span>
+              <span className="font-medium text-foreground text-xs">{data.years_to_retirement}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Retirement age</span>
-              <span className="font-medium text-foreground">{data.retirement_age}</span>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground text-xs">Retirement age</span>
+              <span className="font-medium text-foreground text-xs">{data.retirement_age}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Years in retirement</span>
-              <span className="font-medium text-foreground">{data.years_in_retirement}</span>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground text-xs">Years in retirement</span>
+              <span className="font-medium text-foreground text-xs">{data.years_in_retirement}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Life expectancy</span>
-              <span className="font-medium text-foreground">{data.life_expectancy}</span>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground text-xs">Life expectancy</span>
+              <span className="font-medium text-foreground text-xs">{data.life_expectancy}</span>
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>Financials at Retirement</CardTitle></CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Monthly expenses (today)</span>
-              <span className="font-medium text-foreground">{formatCurrency(data.monthly_expenses)}</span>
+        <Card className="relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-warning to-warning/60 rounded-l-xl" />
+          <CardHeader className="pb-3 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <ArrowRightLeft size={14} />
+              Financials at Retirement
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 px-4 pb-4 space-y-2 text-sm">
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground text-xs">Monthly expenses (today)</span>
+              <span className="font-medium text-foreground text-xs">{formatCurrency(data.monthly_expenses)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Inflation-adjusted monthly</span>
-              <span className="font-medium text-foreground">{formatCurrency(data.monthly_expenses_at_retirement)}</span>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground text-xs">Inflation-adjusted monthly</span>
+              <span className="font-medium text-foreground text-xs">{formatCurrency(data.monthly_expenses_at_retirement)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Annual expenses at retirement</span>
-              <span className="font-medium text-foreground">{formatCurrency(data.annual_expenses_at_retirement)}</span>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground text-xs">Annual expenses at retirement</span>
+              <span className="font-medium text-foreground text-xs">{formatCurrency(data.annual_expenses_at_retirement)}</span>
             </div>
-            <div className="flex justify-between border-t border-border pt-2">
-              <span className="text-muted-foreground font-medium">Corpus needed</span>
-              <span className="font-bold text-foreground">{formatCurrency(data.corpus_needed)}</span>
+            <div className="flex justify-between py-1 border-t border-border">
+              <span className="text-muted-foreground text-xs font-medium">Corpus needed</span>
+              <span className="font-bold text-foreground text-xs">{formatCurrency(data.corpus_needed)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground font-medium">Current corpus</span>
-              <span className="font-bold text-foreground">{formatCurrency(data.current_corpus)}</span>
+            <div className="flex justify-between py-1">
+              <span className="text-muted-foreground text-xs font-medium">Current corpus</span>
+              <span className="font-bold text-foreground text-xs">{formatCurrency(data.current_corpus)}</span>
             </div>
-            <div className="flex justify-between border-t border-border pt-2">
-              <span className="text-muted-foreground font-medium">Monthly SIP required</span>
-              <span className="font-bold text-primary">{formatCurrency(data.monthly_sip_needed)}</span>
+            <div className="flex justify-between py-1 border-t border-border">
+              <span className="text-muted-foreground text-xs font-medium">Monthly SIP required</span>
+              <span className="font-bold text-primary text-xs">{formatCurrency(data.monthly_sip_needed)}</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle>How It Works</CardTitle></CardHeader>
-        <CardContent className="space-y-2 text-sm text-muted-foreground">
+      {/* How It Works */}
+      <Card className="relative overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-muted-foreground/30 to-muted-foreground/10 rounded-l-xl" />
+        <CardHeader className="pb-3 pt-4 px-4">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Info size={14} />
+            How It Works
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0 px-4 pb-4 space-y-2 text-xs text-muted-foreground">
           <p>This calculator estimates the retirement corpus you'll need based on your current expenses, expected inflation, and desired retirement age. It assumes your expenses grow with inflation until retirement, then your corpus earns a post-retirement return while you draw down on it.</p>
           <ul className="list-disc pl-5 space-y-1">
             <li><strong>Corpus needed</strong> — calculated as the present value (at retirement) of all future expenses during retirement, discounted at the post-retirement return rate</li>

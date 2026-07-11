@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom"
+import { LayoutDashboard, ChevronDown, ArrowRightLeft, ClipboardList, TrendingUp, Settings } from "lucide-react"
 import Dashboard from "./pages/Dashboard"
 import Transactions from "./pages/Transactions"
 import Goals from "./pages/Goals"
@@ -16,12 +17,14 @@ import Retirement from "./pages/Retirement"
 
 interface NavGroup {
   label: string
+  icon: React.ReactNode
   children: { to: string; label: string }[]
 }
 
 const groups: NavGroup[] = [
   {
     label: "Transactions",
+    icon: <ArrowRightLeft size={16} />,
     children: [
       { to: "/transactions", label: "Transactions" },
       { to: "/recurring", label: "Recurring" },
@@ -29,6 +32,7 @@ const groups: NavGroup[] = [
   },
   {
     label: "Planning",
+    icon: <ClipboardList size={16} />,
     children: [
       { to: "/budgets", label: "Budgets" },
       { to: "/goals", label: "Goals" },
@@ -40,6 +44,7 @@ const groups: NavGroup[] = [
   },
   {
     label: "Analytics",
+    icon: <TrendingUp size={16} />,
     children: [
       { to: "/net-worth", label: "Net Worth" },
       { to: "/financial-health", label: "Health Score" },
@@ -47,6 +52,7 @@ const groups: NavGroup[] = [
   },
   {
     label: "Settings",
+    icon: <Settings size={16} />,
     children: [
       { to: "/categories", label: "Categories" },
       { to: "/profile", label: "Profile" },
@@ -63,7 +69,8 @@ function DropdownGroup({ group }: { group: NavGroup }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const location = useLocation()
-  const isActive = allChildPaths(group).includes(location.pathname)
+  const childPaths = allChildPaths(group)
+  const isActive = childPaths.includes(location.pathname)
 
   function openDelayed() {
     if (timer.current) clearTimeout(timer.current)
@@ -93,17 +100,27 @@ function DropdownGroup({ group }: { group: NavGroup }) {
     <div ref={ref} className="relative" onMouseEnter={openDelayed} onMouseLeave={closeDelayed}>
       <button
         onClick={toggle}
-        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
           isActive
-            ? "bg-primary-light text-primary-hover"
+            ? "bg-primary/10 text-primary"
             : "text-muted-foreground hover:bg-muted hover:text-foreground"
         }`}
       >
-        {group.label} <span className="text-xs ml-0.5 opacity-60">▾</span>
+        <span className="hidden lg:inline">{group.icon}</span>
+        {group.label}
+        <ChevronDown
+          size={14}
+          className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-0 pt-1 w-44" onMouseEnter={openDelayed} onMouseLeave={closeDelayed}>
-          <div className="bg-card border border-border rounded-xl shadow-lg py-1">
+        <div
+          className="absolute top-full left-0 mt-2 pt-0 w-44 animate-dropdown"
+          onMouseEnter={openDelayed}
+          onMouseLeave={closeDelayed}
+        >
+          <div className="relative bg-card border border-border rounded-xl shadow-xl py-1.5">
+            <div className="absolute -top-1.5 left-4 w-3 h-3 bg-card border-l border-t border-border rotate-45" />
             {group.children.map((child) => {
               const active = location.pathname === child.to
               return (
@@ -111,9 +128,9 @@ function DropdownGroup({ group }: { group: NavGroup }) {
                   key={child.to}
                   to={child.to}
                   onClick={() => setOpen(false)}
-                  className={`block px-3 py-2 text-sm transition-colors ${
+                  className={`block px-3 py-2 text-sm transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
                     active
-                      ? "bg-primary-light text-primary-hover font-semibold"
+                      ? "bg-primary/10 text-primary font-semibold"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
@@ -132,23 +149,27 @@ function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-background">
-        <nav className="bg-card border-b border-border shadow-sm">
+        <nav className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border shadow-sm">
           <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
-            <NavLink to="/" className="font-bold text-lg tracking-tight text-foreground">
+            <NavLink to="/" className="flex items-center gap-2 font-bold text-lg tracking-tight text-foreground">
+              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+                <LayoutDashboard size={16} className="text-primary-foreground" />
+              </div>
               Fin Tracker
             </NavLink>
-            <div className="flex gap-1">
+            <div className="flex items-center gap-0.5">
               <NavLink
                 to="/"
                 end
                 className={({ isActive }) =>
-                  `px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                  `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                     isActive
-                      ? "bg-primary-light text-primary-hover"
+                      ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`
                 }
               >
+                <LayoutDashboard size={16} className="hidden lg:inline" />
                 Dashboard
               </NavLink>
               {groups.map((g) => (

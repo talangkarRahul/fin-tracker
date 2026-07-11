@@ -1,6 +1,7 @@
 import json
 from fastapi import APIRouter
 from services import get_financial_profile, update_financial_profile
+from services.investments import get_investment_assets
 from routes.common import serialize
 
 router = APIRouter()
@@ -14,6 +15,7 @@ def api_get_financial_profile():
         d["existing_assets"] = json.loads(d["existing_assets"])
     if isinstance(d.get("existing_liabilities"), str):
         d["existing_liabilities"] = json.loads(d["existing_liabilities"])
+    d["investment_assets"] = get_investment_assets()
     return d
 
 

@@ -4,53 +4,61 @@ import pdfplumber
 import pandas as pd
 import pypdfium2 as pdfium
 import pytesseract
+from PIL import Image
 from db import SessionLocal
 from models import Transaction
 from services.categories import categorize
 from services.transactions import safe_float, _is_duplicate
 
 
-def _extract_lines_pdfplumber(file_path: str) -> str | None:
-    """Extract text line-by-line using pdfplumber char positions."""
+def _extract_lines_pdfplumber(file_path: str) -> list[dict] | None:
+    """Extract text line-by-line using pdfplumber char positions.
+
+    Returns list of {y, text} for each line, with x-ranges for column detection.
+    """
     with pdfplumber.open(file_path) as pdf:
-        lines = []
+        page_data = []
         for page in pdf.pages:
             if not page.chars:
                 return None
             by_y = defaultdict(list)
             for c in page.chars:
                 by_y[round(c["top"], 1)].append(c)
+            lines = []
             for y in sorted(by_y):
-                text = "".join(
-                    c["text"] for c in sorted(by_y[y], key=lambda c: c["x0"])
-                )
+                chars = sorted(by_y[y], key=lambda c: c["x0"])
+                parts = []
+                prev_x = None
+                for c in chars:
+                    gap = c["x0"] - prev_x if prev_x is not None else 0
+                    if gap > 15:
+                        parts.append(" ")
+                    parts.append(c["text"])
+                    prev_x = c["x0"]
+                text = "".join(parts)
                 if text.strip():
-                    lines.append(text)
-    return "\n".join(lines)
+                    lines.append({
+                        "y": y,
+                        "text": text,
+                        "x0": chars[0]["x0"],
+                        "x1": chars[-1]["x0"],
+                        "chars": chars,
+                    })
+            page_data.extend(lines)
+    return page_data
 
 
-def _get_pdf_text(file_path: str) -> str | None:
-    """Extract text from a PDF. Falls back to OCR if no text found."""
-    text = _extract_lines_pdfplumber(file_path)
-    if text:
-        return text
-    return _ocr_pdf_text(file_path)
-
-
-def _ocr_pdf_text(file_path: str) -> str | None:
-    """Extract text from an image-based PDF using OCR."""
-    try:
-        pdf = pdfium.PdfDocument(file_path)
-        texts = []
-        for i in range(len(pdf)):
-            page = pdf[i]
-            bitmap = page.render(scale=3)
-            pil = bitmap.to_pil()
-            ocr_text = pytesseract.image_to_string(pil)
-            texts.append(ocr_text)
-        return "\n".join(texts)
-    except Exception:
-        return None
+def _ocr_full_text(file_path: str, ocr_scale: int = 2) -> str:
+    """Full-page OCR for description spacing. Only used for building fix map."""
+    pdf = pdfium.PdfDocument(file_path)
+    all_text = []
+    for i in range(len(pdf)):
+        page = pdf[i]
+        bitmap = page.render(scale=ocr_scale)
+        pil = bitmap.to_pil()
+        text = pytesseract.image_to_string(pil)
+        all_text.append(text)
+    return "\n".join(all_text)
 
 
 _TRANSACTION_RE = re.compile(
@@ -60,12 +68,54 @@ _TRANSACTION_RE = re.compile(
 _AMOUNT_RE = re.compile(r"[₹%]?\s*([\d,]+)\s*$")
 
 
-def _parse_gpay_lines(lines: list[str]) -> list[dict]:
-    """Parse GPay statement lines into transaction dicts.
+def _build_desc_fix_map(file_path: str) -> dict[str, str]:
+    """Build a mapping of no-space descriptions to spaced descriptions using OCR."""
+    ocr_text = _ocr_full_text(file_path)
+    if not ocr_text:
+        return {}
 
-    Handles both no-space pdfplumber format (01May,2026Paidto...₹160)
-    and OCR format (01 May, 2026 Paid to ... ₹160).
-    """
+    mapping = {}
+    lines = ocr_text.split("\n")
+    for i, line in enumerate(lines):
+        line = line.strip()
+        if not line:
+            continue
+        if _TRANSACTION_RE.match(line):
+            rest = _TRANSACTION_RE.match(line).group(2).strip()
+        elif (line.startswith("Paid to") or line.startswith("Paid by") or line.startswith("Received from")):
+            rest = line
+        else:
+            continue
+
+        desc = rest.replace("₹", "").replace("%", "").replace("S$", "").strip()
+        desc = re.sub(r"\s*[RrVv]+\s*[\d,]+(?:\.\d+)?\s*$", "", desc).strip()
+        desc = re.sub(r"\s*[\d,]+(?:\.\d+)?\s*$", "", desc).strip()
+        desc = re.sub(r"\s*[<>=™∙•.\[\]·]+\s*$", "", desc).strip()
+        desc = re.sub(r"\s+", " ", desc).strip()
+        no_space = re.sub(r"\s+", "", desc)
+        if no_space != desc and len(no_space) > 3:
+            mapping[no_space] = desc
+    return mapping
+
+
+def _fix_description(desc: str, fix_map: dict[str, str] | None = None) -> str:
+    """Insert spaces into PDF descriptions that lack them."""
+    # Apply OCR fix map first
+    if fix_map:
+        no_space = re.sub(r"\s+", "", desc)
+        if no_space in fix_map:
+            return fix_map[no_space]
+
+    desc = desc.replace("Paidto", "Paid to ").replace("Paidby", "Paid by ")
+    desc = desc.replace("Receivedfrom", "Received from ")
+    desc = re.sub(r"(?<=[a-z])(?=[A-Z])", " ", desc)
+    desc = re.sub(r"(?<=\d)(?=[A-Z])", " ", desc)
+    desc = re.sub(r"\s+", " ", desc).strip()
+    return desc
+
+
+def _parse_gpay_lines(lines: list[str], fix_map: dict[str, str] | None = None) -> list[dict]:
+    """Parse GPay statement lines into transaction dicts."""
     text = "\n".join(lines)
     transactions = []
 
@@ -85,17 +135,10 @@ def _parse_gpay_lines(lines: list[str]) -> list[dict]:
 
         desc = line_content[: amt_m.start()].strip()
         desc = desc.replace("₹", "").replace("%", "").replace("S$", "").strip()
+        desc = _fix_description(desc, fix_map)
 
-        is_expense = (
-            desc.startswith("Paid to")
-            or desc.startswith("Paidto")
-            or desc.startswith("Paid by")
-            or desc.startswith("Paidby")
-        )
-        is_income = (
-            desc.startswith("Received from")
-            or desc.startswith("Receivedfrom")
-        )
+        is_expense = desc.startswith("Paid to") or desc.startswith("Paid by")
+        is_income = desc.startswith("Received from")
 
         if not is_expense and not is_income:
             continue
@@ -116,18 +159,39 @@ def _parse_gpay_lines(lines: list[str]) -> list[dict]:
     return transactions
 
 
-def _extract_gpay_transactions(file_path: str) -> list[dict]:
-    """Extract transactions from a GPay PDF file."""
-    text = _get_pdf_text(file_path)
-    if not text:
+def _extract_gpay_transactions(file_path: str, full: bool = False) -> list[dict]:
+    """Extract transactions from a GPay PDF file.
+
+    Args:
+        file_path: Path to the PDF file.
+        full: If True, runs OCR for properly spaced descriptions (slower).
+              If False, uses heuristics only (faster).
+    """
+    lines_data = _extract_lines_pdfplumber(file_path)
+
+    if lines_data is None:
+        # Image-based PDF - use OCR
+        text = _ocr_full_text(file_path)
+        if not text:
+            return []
+        return _parse_gpay_lines(text.split("\n"))
+
+    lines_text = [l["text"] for l in lines_data]
+    parsed = _parse_gpay_lines(lines_text)
+
+    if not parsed:
         return []
 
-    lines = text.split("\n")
-    return _parse_gpay_lines(lines)
+    if full:
+        fix_map = _build_desc_fix_map(file_path)
+        if fix_map:
+            return _parse_gpay_lines(lines_text, fix_map)
+
+    return parsed
 
 
 def parse_pdf_preview(file_path: str, preview_rows: int = 5) -> dict:
-    rows = _extract_gpay_transactions(file_path)
+    rows = _extract_gpay_transactions(file_path, full=False)
     if not rows:
         return {"columns": [], "rows": []}
 
@@ -137,7 +201,7 @@ def parse_pdf_preview(file_path: str, preview_rows: int = 5) -> dict:
 
 
 def import_pdf_with_mapping(file_path: str, mapping: dict) -> int:
-    rows = _extract_gpay_transactions(file_path)
+    rows = _extract_gpay_transactions(file_path, full=True)
     if not rows:
         return 0
 

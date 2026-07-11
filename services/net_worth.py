@@ -2,6 +2,7 @@ import json
 from datetime import date
 from db import SessionLocal
 from models import NetWorthSnapshot, FinancialProfile, EmergencyFund
+from services.investments import get_investment_assets
 
 
 def get_net_worth():
@@ -32,6 +33,18 @@ def get_net_worth():
 
     if ef and ef.current_amount:
         assets_list.append({"label": "Emergency Fund", "amount": round(ef.current_amount, 2)})
+
+    # Include investments aggregated by type
+    inv_labels = {a["label"] for a in assets_list}
+    for inv_asset in get_investment_assets():
+        if inv_asset["label"] in inv_labels:
+            # Merge: add to existing entry rather than duplicate
+            for a in assets_list:
+                if a["label"] == inv_asset["label"]:
+                    a["amount"] = round(a["amount"] + inv_asset["amount"], 2)
+                    break
+        else:
+            assets_list.append(inv_asset)
 
     total_assets = round(sum(a["amount"] for a in assets_list), 2)
     total_liabilities = round(sum(l["amount"] for l in liabilities_list), 2)

@@ -5,7 +5,10 @@ import { Button } from "../components/ui/button"
 import ImportCSVDialog from "../components/ImportCSVDialog"
 import { formatCurrency } from "../lib/format"
 import { api, type Transaction } from "../api"
-
+import {
+  Plus, Upload, Search, X, Check, Edit3, Trash2,
+  TrendingUp, TrendingDown, Filter, ChevronLeft, ChevronRight,
+} from "lucide-react"
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
@@ -14,8 +17,11 @@ function formatDate(dateStr: string) {
 function LoadingSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
+      <div className="grid grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => <div key={i} className="h-20 bg-muted rounded-xl" />)}
+      </div>
       <div className="h-10 bg-muted rounded-lg w-64" />
-      <div className="h-64 bg-muted rounded-xl" />
+      <div className="h-80 bg-muted rounded-xl" />
     </div>
   )
 }
@@ -26,9 +32,12 @@ export default function Transactions() {
   const [showForm, setShowForm] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [form, setForm] = useState({ date: "", description: "", amount: "", category: "", transaction_type: "expense" })
-  const [filters, setFilters] = useState({ dateFrom: "", dateTo: "", type: "all", category: "all" })
+  const [filters, setFilters] = useState({ dateFrom: "", dateTo: "", type: "all", category: "all", search: "" })
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editForm, setEditForm] = useState({ date: "", description: "", amount: "", category: "", transaction_type: "expense" })
+  const [page, setPage] = useState(1)
+  const pageSize = 15
+
   async function load() {
     setLoading(true)
     try {
@@ -104,56 +113,130 @@ export default function Transactions() {
       if (filters.category !== "all" && t.category !== filters.category) return false
       if (filters.dateFrom && t.date < filters.dateFrom) return false
       if (filters.dateTo && t.date > filters.dateTo) return false
+      if (filters.search) {
+        const q = filters.search.toLowerCase()
+        const desc = (t.description || "").toLowerCase()
+        const cat = (t.category || "").toLowerCase()
+        if (!desc.includes(q) && !cat.includes(q)) return false
+      }
       return true
     })
   }, [transactions, filters])
+
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(filtered.length / pageSize)), [filtered, pageSize])
+
+  useEffect(() => { setPage(1) }, [filters])
+  useEffect(() => { if (page > totalPages) setPage(totalPages) }, [page, totalPages])
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return filtered.slice(start, start + pageSize)
+  }, [filtered, page, pageSize])
+
+  const summary = useMemo(() => {
+    let income = 0
+    let expenses = 0
+    for (const t of filtered) {
+      if (t.amount > 0) income += t.amount
+      else expenses += Math.abs(t.amount)
+    }
+    return { income, expenses, net: income - expenses, count: filtered.length }
+  }, [filtered])
 
   if (loading) return <LoadingSkeleton />
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Transactions</h1>
-          <p className="text-muted-foreground mt-1">View, add, and import your financial transactions</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Transactions</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">View, add, and import your financial transactions</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-            Import CSV
+            <Upload size={15} className="mr-1.5" />
+            Import
           </Button>
           <Button onClick={() => { setShowForm(!showForm); setForm({ date: "", description: "", amount: "", category: "", transaction_type: "expense" }) }}>
-            {showForm ? "Cancel" : "Add Transaction"}
+            {showForm ? <X size={15} className="mr-1.5" /> : <Plus size={15} className="mr-1.5" />}
+            {showForm ? "Cancel" : "Add"}
           </Button>
         </div>
       </div>
 
+      {/* Summary bar */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="pt-4 pb-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Income</p>
+              <p className="text-lg font-bold text-success mt-0.5">{formatCurrency(summary.income)}</p>
+            </div>
+            <div className="p-2 rounded-lg bg-success/10 text-success">
+              <TrendingUp size={18} />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="pt-4 pb-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Expenses</p>
+              <p className="text-lg font-bold text-destructive mt-0.5">{formatCurrency(summary.expenses)}</p>
+            </div>
+            <div className="p-2 rounded-lg bg-destructive/10 text-destructive">
+              <TrendingDown size={18} />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="pt-4 pb-3 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium">Net</p>
+              <p className={`text-lg font-bold mt-0.5 ${summary.net >= 0 ? "text-success" : "text-destructive"}`}>
+                {formatCurrency(summary.net)}
+              </p>
+            </div>
+            <div className={`p-2 rounded-lg ${summary.net >= 0 ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}>
+              <Filter size={18} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Add form */}
       {showForm && (
         <Card>
-          <CardHeader><CardTitle>New Transaction</CardTitle></CardHeader>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold">New Transaction</CardTitle>
+          </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Date</label>
+                <label className="block text-xs font-medium text-foreground mb-1">Date</label>
                 <input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+                <label className="block text-xs font-medium text-foreground mb-1">Description</label>
                 <input type="text" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="e.g. Salary, Groceries"
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Amount</label>
+                <label className="block text-xs font-medium text-foreground mb-1">Amount (₹)</label>
                 <input type="number" step="0.01" required value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  placeholder="0.00"
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Category</label>
+                <label className="block text-xs font-medium text-foreground mb-1">Category</label>
                 <input type="text" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  placeholder="e.g. Food, Rent"
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Type</label>
+                <label className="block text-xs font-medium text-foreground mb-1">Type</label>
                 <select value={form.transaction_type} onChange={(e) => {
                   const val = e.target.value
                   setForm({ ...form, transaction_type: val })
@@ -166,27 +249,35 @@ export default function Transactions() {
                 </select>
               </div>
               <div className="flex items-end sm:col-span-2 lg:col-span-5">
-                <Button type="submit">Add Transaction</Button>
+                <Button type="submit" size="sm">
+                  <Check size={14} className="mr-1" />
+                  Add Transaction
+                </Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
 
+      {/* Transactions table */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle>All Transactions</CardTitle>
-            <span className="text-xs text-muted-foreground">{filtered.length} of {transactions.length}</span>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <CardTitle className="text-sm font-semibold">All Transactions</CardTitle>
+            <span className="text-xs text-muted-foreground tabular-nums">
+              {summary.count} of {transactions.length}
+            </span>
           </div>
+
+          {/* Filters */}
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <div className="flex items-center gap-2 text-sm">
               <span className="text-muted-foreground text-xs">From</span>
               <input type="date" value={filters.dateFrom} onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
-                className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
+                className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring w-32" />
               <span className="text-muted-foreground text-xs">To</span>
               <input type="date" value={filters.dateTo} onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-                className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
+                className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring w-32" />
             </div>
             <select value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value })}
               className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring">
@@ -200,30 +291,41 @@ export default function Transactions() {
                 <option key={c} value={c}>{c === "all" ? "All categories" : c}</option>
               ))}
             </select>
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input type="text" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                placeholder="Search..."
+                className="rounded-lg border border-border bg-card pl-7 pr-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring w-32 sm:w-40" />
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-border bg-muted">
+                <tr className="border-b border-border bg-muted/50 text-xs uppercase tracking-wider">
                   <th className="text-left py-3 px-5 font-medium text-muted-foreground">Date</th>
                   <th className="text-left py-3 px-5 font-medium text-muted-foreground">Description</th>
                   <th className="text-left py-3 px-5 font-medium text-muted-foreground">Category</th>
                   <th className="text-right py-3 px-5 font-medium text-muted-foreground">Amount</th>
-                  <th className="text-left py-3 px-5 font-medium text-muted-foreground">Type</th>
-                  <th className="text-right py-3 px-5 font-medium text-muted-foreground"></th>
+                  <th className="text-center py-3 px-5 font-medium text-muted-foreground">Type</th>
+                  <th className="text-right py-3 px-5 font-medium text-muted-foreground w-24">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-muted-foreground">No transactions match filters</td>
+                    <td colSpan={6} className="py-16 text-center text-muted-foreground text-sm">
+                      <div className="flex flex-col items-center gap-2">
+                        <Search size={24} className="text-muted-foreground/40" />
+                        <span>No transactions match filters</span>
+                      </div>
+                    </td>
                   </tr>
                 )}
-                {filtered.map((tx) =>
+                {paginated.map((tx) =>
                   editingId === tx.id ? (
-                    <tr key={tx.id} className="border-b border-border bg-primary-light/30">
+                    <tr key={tx.id} className="border-b border-border bg-primary/5">
                       <td className="py-2 px-3">
                         <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
                           className="w-full rounded-md border border-border bg-card px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
@@ -249,32 +351,51 @@ export default function Transactions() {
                       </td>
                       <td className="py-2 px-3 text-right whitespace-nowrap">
                         <div className="flex gap-1 justify-end">
-                          <Button size="sm" onClick={() => handleUpdate(tx.id)}>Save</Button>
-                          <Button size="sm" variant="ghost" onClick={cancelEdit}>Cancel</Button>
+                          <Button size="sm" onClick={() => handleUpdate(tx.id)}>
+                            <Check size={13} className="mr-1" />
+                            Save
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={cancelEdit}>
+                            <X size={13} className="mr-1" />
+                            Cancel
+                          </Button>
                         </div>
                       </td>
                     </tr>
                   ) : (
-                    <tr key={tx.id} className="border-b border-border hover:bg-muted/50 transition-colors">
-                      <td className="py-3 px-5 text-muted-foreground whitespace-nowrap">{formatDate(tx.date)}</td>
-                      <td className="py-3 px-5 text-foreground max-w-xs truncate">{tx.description}</td>
+                    <tr key={tx.id} className="border-b border-border hover:bg-muted/30 transition-colors group">
+                      <td className="py-3 px-5 text-muted-foreground whitespace-nowrap text-xs">{formatDate(tx.date)}</td>
+                      <td className="py-3 px-5 text-foreground max-w-xs truncate text-sm">{tx.description || <span className="text-muted-foreground/50 italic">No description</span>}</td>
                       <td className="py-3 px-5">
-                        <Badge variant="secondary">{tx.category}</Badge>
+                        {tx.category ? (
+                          <Badge variant="secondary" className="capitalize">{tx.category}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground/50 text-xs italic">Uncategorized</span>
+                        )}
                       </td>
-                      <td className={`py-3 px-5 text-right font-medium tabular-nums whitespace-nowrap ${tx.amount < 0 ? "text-destructive" : "text-success"}`}>
-                        {formatCurrency(Math.abs(tx.amount))}
+                      <td className={`py-3 px-5 text-right font-semibold tabular-nums whitespace-nowrap text-sm ${tx.amount < 0 ? "text-destructive" : "text-success"}`}>
+                        {tx.amount < 0 ? "-" : "+"}{formatCurrency(Math.abs(tx.amount))}
                       </td>
-                      <td className="py-3 px-5">
-                        <Badge variant={tx.transaction_type === "income" || tx.transaction_type === "credit" ? "success" : "danger"}>
-                          {tx.transaction_type === "income" || tx.transaction_type === "credit" ? "income" : "expense"}
+                      <td className="py-3 px-5 text-center">
+                        <Badge variant={tx.amount > 0 ? "success" : "danger"}>
+                          {tx.amount > 0 ? "income" : "expense"}
                         </Badge>
                       </td>
                       <td className="py-3 px-5 text-right whitespace-nowrap">
-                        <div className="flex gap-1 justify-end">
-                          <Button variant="ghost" size="sm" onClick={() => startEdit(tx)}>Edit</Button>
-                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive/80" onClick={() => handleDelete(tx.id)}>
-                            Delete
+                        <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="sm" onClick={() => startEdit(tx)}
+                            className="h-8 w-8 p-0">
+                            <Edit3 size={14} />
                           </Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(tx.id)}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive/80 hover:bg-destructive/10">
+                            <Trash2 size={14} />
+                          </Button>
+                        </div>
+                        {/* Always visible on mobile fallback */}
+                        <div className="flex gap-1 justify-end sm:hidden">
+                          <Button variant="ghost" size="sm" onClick={() => startEdit(tx)} className="h-7 px-2 text-xs">Edit</Button>
+                          <Button variant="ghost" size="sm" onClick={() => handleDelete(tx.id)} className="h-7 px-2 text-xs text-destructive">Del</Button>
                         </div>
                       </td>
                     </tr>
@@ -283,6 +404,41 @@ export default function Transactions() {
               </tbody>
             </table>
           </div>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-5 py-3 border-t border-border">
+              <span className="text-xs text-muted-foreground tabular-nums">
+                Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filtered.length)} of {filtered.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}
+                  className="h-8 w-8 p-0">
+                  <ChevronLeft size={15} />
+                </Button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                  .map((p, idx, arr) => (
+                    <span key={p} className="flex items-center">
+                      {idx > 0 && arr[idx - 1] !== p - 1 && (
+                        <span className="px-1 text-xs text-muted-foreground">…</span>
+                      )}
+                      <Button
+                        variant={p === page ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setPage(p)}
+                        className="h-8 w-8 p-0 text-xs tabular-nums"
+                      >
+                        {p}
+                      </Button>
+                    </span>
+                  ))}
+                <Button variant="ghost" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}
+                  className="h-8 w-8 p-0">
+                  <ChevronRight size={15} />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       {showImportDialog && (
