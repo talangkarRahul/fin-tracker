@@ -436,77 +436,204 @@ export default function Dashboard() {
 
       {/* Row 4: Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Monthly Summary</CardTitle>
+        <Card className="relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-success to-success/60 rounded-l-xl" />
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Monthly Summary</CardTitle>
+              {monthly.length > 1 && (() => {
+                const latest = monthly[monthly.length - 1]
+                const prev = monthly[monthly.length - 2]
+                const incomeChange = prev?.income ? ((latest.income - prev.income) / prev.income * 100) : 0
+                const expChange = prev?.expenses ? ((latest.expenses - prev.expenses) / prev.expenses * 100) : 0
+                return (
+                  <div className="flex items-center gap-3 text-[10px]">
+                    <span className="flex items-center gap-1">
+                      <TrendingUp size={10} className="text-success" />
+                      <span className="text-success font-medium">+{Math.round(incomeChange)}%</span>
+                      <span className="text-muted-foreground">income</span>
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <TrendingDown size={10} className="text-destructive" />
+                      <span className="text-destructive font-medium">{expChange >= 0 ? "+" : ""}{Math.round(expChange)}%</span>
+                      <span className="text-muted-foreground">exp</span>
+                    </span>
+                  </div>
+                )
+              })()}
+            </div>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={monthly} barGap={4}>
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 13 }} />
-                <Bar dataKey="income" fill="hsl(var(--chart-1))" name="Income" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="expenses" fill="hsl(var(--chart-6))" name="Expenses" radius={[6, 6, 0, 0]} maxBarSize={40} />
+          <CardContent className="pt-0 px-4 pb-4">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={monthly} barGap={6} barCategoryGap="20%">
+                <defs>
+                  <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={1} />
+                    <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0.6} />
+                  </linearGradient>
+                  <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--chart-6))" stopOpacity={1} />
+                    <stop offset="100%" stopColor="hsl(var(--chart-6))" stopOpacity={0.6} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(value: any) => [formatCurrency(Number(value))]} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="income" fill="url(#incomeGrad)" name="Income" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive animationDuration={600} animationEasing="ease-out" />
+                <Bar dataKey="expenses" fill="url(#expenseGrad)" name="Expenses" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive animationDuration={600} animationEasing="ease-out" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Category Breakdown</CardTitle>
+        <Card className="relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-warning to-warning/60 rounded-l-xl" />
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Category Breakdown</CardTitle>
+              <span className="text-[10px] text-muted-foreground">{categories.length} categories</span>
+            </div>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie data={categories} dataKey="amount" nameKey="category" cx="50%" cy="50%" innerRadius={70} outerRadius={110} paddingAngle={3}>
-                  {categories.map((_: any, idx: number) => (
-                    <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 13 }} />
-              </PieChart>
-            </ResponsiveContainer>
+          <CardContent className="pt-0 px-4 pb-4">
+            {categories.length === 0 ? (
+              <div className="flex items-center justify-center h-[280px] text-xs text-muted-foreground">No data for this period</div>
+            ) : (
+              <>
+                {/* Center total */}
+                <div className="text-center -mb-10 relative z-10">
+                  <p className="text-xs text-muted-foreground">Total Spending</p>
+                  <p className="text-lg font-bold text-foreground tabular-nums">
+                    {formatCurrency(categories.reduce((s: number, c: any) => s + c.amount, 0))}
+                  </p>
+                </div>
+                <ResponsiveContainer width="100%" height={280}>
+                  <PieChart>
+                    <Pie
+                      data={categories}
+                      dataKey="amount"
+                      nameKey="category"
+                      cx="50%" cy="50%"
+                      innerRadius={65}
+                      outerRadius={105}
+                      paddingAngle={2}
+                      isAnimationActive
+                      animationDuration={600}
+                      animationEasing="ease-out"
+                    >
+                      {categories.map((_: any, idx: number) => (
+                        <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} stroke="transparent" />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={tooltipStyle}
+                      formatter={(value: any, name: any) => {
+                        const total = categories.reduce((s: number, c: any) => s + c.amount, 0)
+                        const pct = total > 0 ? ((Number(value) / total) * 100).toFixed(1) : "0"
+                        return [`${formatCurrency(Number(value))} (${pct}%)`, name]
+                      }}
+                    />
+                    <Legend
+                      layout="vertical"
+                      align="right"
+                      verticalAlign="middle"
+                      iconType="circle"
+                      iconSize={8}
+                      wrapperStyle={{ fontSize: 11, paddingLeft: 8 }}
+                      formatter={(value: string) => (
+                        <span className="text-muted-foreground">{value}</span>
+                      )}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Budget vs Actual</CardTitle>
+        <Card className="relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-primary/60 rounded-l-xl" />
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Budget vs Actual</CardTitle>
+              {budgetVsActual.length > 0 && (() => {
+                const over = budgetVsActual.filter((b: any) => b.spent > b.limit).length
+                return (
+                  <span className={`text-[10px] font-medium ${over > 0 ? "text-destructive" : "text-success"}`}>
+                    {over > 0 ? `${over} over budget` : "On track"}
+                  </span>
+                )
+              })()}
+            </div>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={budgetVsActual} barGap={4}>
-                <XAxis dataKey="category" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 13 }} />
-                <Bar dataKey="limit" fill="hsl(var(--chart-1))" name="Budget" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                <Bar dataKey="spent" fill="hsl(var(--chart-2))" name="Actual" radius={[6, 6, 0, 0]} maxBarSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="pt-0 px-4 pb-4">
+            {budgetVsActual.length === 0 ? (
+              <div className="flex items-center justify-center h-[280px] text-xs text-muted-foreground">No budgets set</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={budgetVsActual} barGap={6} barCategoryGap="20%">
+                  <defs>
+                    <linearGradient id="budgetGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={1} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-1))" stopOpacity={0.5} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="category" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(value: any) => [formatCurrency(Number(value))]} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="limit" fill="url(#budgetGrad)" name="Budget" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive animationDuration={600} animationEasing="ease-out" />
+                  <Bar dataKey="spent" name="Actual" radius={[4, 4, 0, 0]} maxBarSize={36} isAnimationActive animationDuration={600} animationEasing="ease-out">
+                    {budgetVsActual.map((entry: any, idx: number) => (
+                      <Cell key={idx} fill={entry.spent > entry.limit ? "hsl(var(--destructive))" : "hsl(var(--success))"} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold">Spending Trends</CardTitle>
+        <Card className="relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-chart-4 to-chart-4/60 rounded-l-xl" />
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold">Spending Trends</CardTitle>
+              {trends.length > 1 && (() => {
+                const first = trends[0]
+                const last = trends[trends.length - 1]
+                const change = first?.amount ? ((last.amount - first.amount) / first.amount * 100) : 0
+                return (
+                  <span className={`text-[10px] font-medium flex items-center gap-1 ${change <= 0 ? "text-success" : "text-destructive"}`}>
+                    {change <= 0 ? <TrendingDown size={10} /> : <TrendingUp size={10} />}
+                    {Math.abs(change).toFixed(0)}% vs start
+                  </span>
+                )
+              })()}
+            </div>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={trends}>
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 13 }} />
-                <Line type="monotone" dataKey="amount" stroke="hsl(var(--chart-4))" name="Spending" strokeWidth={2.5} dot={{ r: 4, fill: "hsl(var(--chart-4))" }} activeDot={{ r: 6 }} />
-              </LineChart>
-            </ResponsiveContainer>
+          <CardContent className="pt-0 px-4 pb-4">
+            {trends.length < 2 ? (
+              <div className="flex items-center justify-center h-[280px] text-xs text-muted-foreground">More data points needed</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <LineChart data={trends}>
+                  <defs>
+                    <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--chart-4))" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="hsl(var(--chart-4))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(value: any) => [formatCurrency(Number(value)), "Spending"]} />
+                  <Area type="monotone" dataKey="amount" fill="url(#trendGrad)" stroke="transparent" isAnimationActive animationDuration={600} animationEasing="ease-out" />
+                  <Line type="monotone" dataKey="amount" stroke="hsl(var(--chart-4))" strokeWidth={2.5} name="Spending" dot={{ r: 3, fill: "hsl(var(--chart-4))", strokeWidth: 0 }} activeDot={{ r: 5, fill: "hsl(var(--chart-4))", strokeWidth: 2, stroke: "hsl(var(--background))" }} isAnimationActive animationDuration={600} animationEasing="ease-out" />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>

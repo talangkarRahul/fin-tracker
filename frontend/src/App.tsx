@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { BrowserRouter, Routes, Route, NavLink, useLocation } from "react-router-dom"
-import { LayoutDashboard, ChevronDown, ArrowRightLeft, ClipboardList, TrendingUp, Settings } from "lucide-react"
+import { LayoutDashboard, ChevronDown, ArrowRightLeft, ClipboardList, TrendingUp, Settings, Moon, Sun } from "lucide-react"
 import Dashboard from "./pages/Dashboard"
 import Transactions from "./pages/Transactions"
 import Goals from "./pages/Goals"
@@ -146,6 +146,23 @@ function DropdownGroup({ group }: { group: NavGroup }) {
 }
 
 function App() {
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem("theme")
+    if (saved) return saved === "dark"
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+  })
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (dark) {
+      root.classList.add("dark")
+      localStorage.setItem("theme", "dark")
+    } else {
+      root.classList.remove("dark")
+      localStorage.setItem("theme", "light")
+    }
+  }, [dark])
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-background">
@@ -176,6 +193,13 @@ function App() {
                 <DropdownGroup key={g.label} group={g} />
               ))}
             </div>
+            <button
+              onClick={() => setDark((d) => !d)}
+              className="ml-2 p-2 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Toggle dark mode"
+            >
+              {dark ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
           </div>
         </nav>
 
