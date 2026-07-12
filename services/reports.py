@@ -221,6 +221,35 @@ def report_trends(months: int = 6, categories: list[str] = None, date_from=None,
     return rows
 
 
+def report_group(month_str: str = None, date_from=None, date_to=None):
+    session = SessionLocal()
+    if month_str:
+        y, m = map(int, month_str.split("-"))
+        start, end = _month_bounds(y, m)
+    else:
+        start = date_from or date(2000, 1, 1)
+        end = (date_to or date.today()) + timedelta(days=1)
+    rows = (
+        session.query(
+            Transaction.group,
+            func.abs(func.sum(Transaction.amount)),
+        )
+        .filter(Transaction.amount < 0)
+        .filter(Transaction.date >= start)
+        .filter(Transaction.date < end)
+        .filter(Transaction.group.isnot(None))
+        .group_by(Transaction.group)
+        .order_by(func.abs(func.sum(Transaction.amount)).desc())
+        .all()
+    )
+    total = sum(amount for _, amount in rows) or 1
+    session.close()
+    return [
+        {"group": grp, "amount": amt, "pct": round((amt / total) * 100, 1)}
+        for grp, amt in rows
+    ]
+
+
 def report_budget_vs_actual(date_from=None, date_to=None):
     session = SessionLocal()
     today = date_to or date.today()

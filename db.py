@@ -74,6 +74,18 @@ def _run_migrations():
     if "expected_return" not in goals_cols:
         conn.execute("ALTER TABLE goals ADD COLUMN expected_return FLOAT DEFAULT 8.0")
 
+    # Migrate group column in transactions
+    cursor = conn.execute("PRAGMA table_info(transactions)")
+    tx_cols = {row[1] for row in cursor.fetchall()}
+    if "group" not in tx_cols:
+        conn.execute('ALTER TABLE transactions ADD COLUMN "group" VARCHAR(20)')
+
+    # Migrate goal_id column in investments
+    cursor = conn.execute("PRAGMA table_info(investments)")
+    inv_cols = {row[1] for row in cursor.fetchall()}
+    if "goal_id" not in inv_cols:
+        conn.execute("ALTER TABLE investments ADD COLUMN goal_id INTEGER")
+
     conn.close()
 
 

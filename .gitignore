@@ -10,6 +10,8 @@ wheels/
 .venv
 # db files
 *.db
+*.db-shm
+*.db-wal
 uploads/
 
 # environment variables

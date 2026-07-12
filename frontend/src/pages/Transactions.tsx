@@ -26,15 +26,30 @@ function LoadingSkeleton() {
   )
 }
 
+const groupStyles: Record<string, string> = {
+  NEEDS: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+  WANTS: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  INVESTMENT: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  NOT_APPLICABLE: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+}
+
+function GroupBadge({ group }: { group: string }) {
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${groupStyles[group] || ""}`}>
+      {group}
+    </span>
+  )
+}
+
 export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [showImportDialog, setShowImportDialog] = useState(false)
-  const [form, setForm] = useState({ date: "", description: "", amount: "", category: "", transaction_type: "expense" })
-  const [filters, setFilters] = useState({ dateFrom: "", dateTo: "", type: "all", category: "all", search: "" })
+  const [form, setForm] = useState({ date: "", description: "", amount: "", category: "", transaction_type: "expense", group: "" })
+  const [filters, setFilters] = useState({ dateFrom: "", dateTo: "", type: "all", category: "all", group: "all", search: "" })
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [editForm, setEditForm] = useState({ date: "", description: "", amount: "", category: "", transaction_type: "expense" })
+  const [editForm, setEditForm] = useState({ date: "", description: "", amount: "", category: "", transaction_type: "expense", group: "" })
   const [page, setPage] = useState(1)
   const pageSize = 15
 
@@ -58,9 +73,10 @@ export default function Transactions() {
       description: form.description || undefined,
       amount: parseFloat(form.amount),
       category: form.category || undefined,
+      group: form.group || undefined,
       transaction_type: form.transaction_type,
     })
-    setForm({ date: "", description: "", amount: "", category: "", transaction_type: "expense" })
+    setForm({ date: "", description: "", amount: "", category: "", transaction_type: "expense", group: "" })
     setShowForm(false)
     await load()
   }
@@ -77,6 +93,7 @@ export default function Transactions() {
       description: tx.description || "",
       amount: String(Math.abs(tx.amount)),
       category: tx.category || "",
+      group: tx.group || "",
       transaction_type: tx.amount < 0 ? "expense" : "income",
     })
   }
@@ -92,6 +109,7 @@ export default function Transactions() {
       description: editForm.description || undefined,
       amount: parseFloat(editForm.amount),
       category: editForm.category || undefined,
+      group: editForm.group || undefined,
       transaction_type: editForm.transaction_type,
     })
     setEditingId(null)
@@ -103,6 +121,12 @@ export default function Transactions() {
     return ["all", ...Array.from(set).sort()]
   }, [transactions])
 
+  const groups = useMemo(() => {
+    const vals = transactions.map((t) => t.group).filter((g): g is string => g !== null)
+    const set = new Set(vals)
+    return ["all", ...Array.from(set).sort()]
+  }, [transactions])
+
   const filtered = useMemo(() => {
     return transactions.filter((t) => {
       if (filters.type !== "all") {
@@ -111,6 +135,7 @@ export default function Transactions() {
         if (filters.type === "expense" && !isExpense) return false
       }
       if (filters.category !== "all" && t.category !== filters.category) return false
+      if (filters.group !== "all" && t.group !== filters.group) return false
       if (filters.dateFrom && t.date < filters.dateFrom) return false
       if (filters.dateTo && t.date > filters.dateTo) return false
       if (filters.search) {
@@ -158,7 +183,7 @@ export default function Transactions() {
             <Upload size={15} className="mr-1.5" />
             Import
           </Button>
-          <Button onClick={() => { setShowForm(!showForm); setForm({ date: "", description: "", amount: "", category: "", transaction_type: "expense" }) }}>
+          <Button onClick={() => { setShowForm(!showForm); setForm({ date: "", description: "", amount: "", category: "", transaction_type: "expense", group: "" }) }}>
             {showForm ? <X size={15} className="mr-1.5" /> : <Plus size={15} className="mr-1.5" />}
             {showForm ? "Cancel" : "Add"}
           </Button>
@@ -236,6 +261,17 @@ export default function Transactions() {
                   className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
               </div>
               <div>
+                <label className="block text-xs font-medium text-foreground mb-1">Group</label>
+                <select value={form.group} onChange={(e) => setForm({ ...form, group: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                  <option value="">Auto</option>
+                  <option value="NEEDS">NEEDS</option>
+                  <option value="WANTS">WANTS</option>
+                  <option value="INVESTMENT">INVESTMENT</option>
+                  <option value="NOT_APPLICABLE">NOT_APPLICABLE</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-foreground mb-1">Type</label>
                 <select value={form.transaction_type} onChange={(e) => {
                   const val = e.target.value
@@ -291,6 +327,12 @@ export default function Transactions() {
                 <option key={c} value={c}>{c === "all" ? "All categories" : c}</option>
               ))}
             </select>
+            <select value={filters.group} onChange={(e) => setFilters({ ...filters, group: e.target.value })}
+              className="rounded-lg border border-border bg-card px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring">
+              {groups.map((g) => (
+                <option key={g} value={g ?? ""}>{g === "all" ? "All groups" : g}</option>
+              ))}
+            </select>
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input type="text" value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })}
@@ -307,6 +349,7 @@ export default function Transactions() {
                   <th className="text-left py-3 px-5 font-medium text-muted-foreground">Date</th>
                   <th className="text-left py-3 px-5 font-medium text-muted-foreground">Description</th>
                   <th className="text-left py-3 px-5 font-medium text-muted-foreground">Category</th>
+                  <th className="text-left py-3 px-5 font-medium text-muted-foreground">Group</th>
                   <th className="text-right py-3 px-5 font-medium text-muted-foreground">Amount</th>
                   <th className="text-center py-3 px-5 font-medium text-muted-foreground">Type</th>
                   <th className="text-right py-3 px-5 font-medium text-muted-foreground w-24">Actions</th>
@@ -315,7 +358,7 @@ export default function Transactions() {
               <tbody>
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-16 text-center text-muted-foreground text-sm">
+                    <td colSpan={7} className="py-16 text-center text-muted-foreground text-sm">
                       <div className="flex flex-col items-center gap-2">
                         <Search size={24} className="text-muted-foreground/40" />
                         <span>No transactions match filters</span>
@@ -337,6 +380,16 @@ export default function Transactions() {
                       <td className="py-2 px-3">
                         <input type="text" value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                           className="w-full rounded-md border border-border bg-card px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring" />
+                      </td>
+                      <td className="py-2 px-3">
+                        <select value={editForm.group} onChange={(e) => setEditForm({ ...editForm, group: e.target.value })}
+                          className="w-full rounded-md border border-border bg-card px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-ring">
+                          <option value="">Auto</option>
+                          <option value="NEEDS">NEEDS</option>
+                          <option value="WANTS">WANTS</option>
+                          <option value="INVESTMENT">INVESTMENT</option>
+                          <option value="NOT_APPLICABLE">NOT_APPLICABLE</option>
+                        </select>
                       </td>
                       <td className="py-2 px-3">
                         <input type="number" step="0.01" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
@@ -371,6 +424,13 @@ export default function Transactions() {
                           <Badge variant="secondary" className="capitalize">{tx.category}</Badge>
                         ) : (
                           <span className="text-muted-foreground/50 text-xs italic">Uncategorized</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-5">
+                        {tx.group ? (
+                          <GroupBadge group={tx.group} />
+                        ) : (
+                          <span className="text-muted-foreground/50 text-xs italic">—</span>
                         )}
                       </td>
                       <td className={`py-3 px-5 text-right font-semibold tabular-nums whitespace-nowrap text-sm ${tx.amount < 0 ? "text-destructive" : "text-success"}`}>

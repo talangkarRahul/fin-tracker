@@ -21,6 +21,7 @@ from services.categories import (
 from services.reports import (
     monthly_summary, expense_breakdown, savings_rate,
     report_monthly, report_category, report_trends, report_budget_vs_actual,
+    report_group,
 )
 from services.dashboard_note import (
     get_dashboard_note, set_dashboard_note,

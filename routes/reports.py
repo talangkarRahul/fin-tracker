@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from services import report_monthly, report_category, report_trends, report_budget_vs_actual, _parse_date
+from services import report_monthly, report_category, report_trends, report_budget_vs_actual, report_group, _parse_date
 from routes.common import serialize
 
 router = APIRouter()
@@ -32,3 +32,10 @@ def api_report_budget_vs_actual(date_from: str = None, date_to: str = None):
     df = _parse_date(date_from) if date_from else None
     dt = _parse_date(date_to) if date_to else None
     return serialize(report_budget_vs_actual(df, dt))
+
+
+@router.get("/api/reports/group")
+def api_report_group(month: str = None, date_from: str = None, date_to: str = None):
+    df = _parse_date(date_from) if date_from else None
+    dt = _parse_date(date_to) if date_to else None
+    return serialize(report_group(month, df, dt))

@@ -50,6 +50,7 @@ def create_investment(data: dict):
         sip_frequency=data.get("sip_frequency"),
         notes=data.get("notes"),
         active=data.get("active", True),
+        goal_id=data.get("goal_id"),
     )
     session.add(item)
     session.commit()
@@ -65,7 +66,7 @@ def update_investment(item_id: int, data: dict):
         session.close()
         return None
     for key in ("investment_type", "name", "amount_invested", "current_value",
-                "purchase_date", "sip_amount", "sip_frequency", "notes", "active"):
+                "purchase_date", "sip_amount", "sip_frequency", "notes", "active", "goal_id"):
         if key in data:
             value = _parse_date(data[key]) if key.endswith("_date") else data[key]
             setattr(item, key, value)
@@ -235,4 +236,12 @@ def _enrich(i: Investment):
         "sip_frequency": i.sip_frequency,
         "notes": i.notes,
         "active": i.active,
+        "goal_id": i.goal_id,
     }
+
+
+def get_investments_by_goal(goal_id: int):
+    session = SessionLocal()
+    items = session.query(Investment).filter(Investment.goal_id == goal_id).order_by(Investment.purchase_date.desc()).all()
+    session.close()
+    return [_enrich(i) for i in items]

@@ -355,7 +355,7 @@ export default function Goals() {
     (acc, g) => ({
       total: acc.total + 1,
       target: acc.target + g.target_amount,
-      current: acc.current + (g.current_amount || 0),
+      current: acc.current + (g.current_amount || 0) + (g.invested_via_goal || 0),
       achieved: acc.achieved + (g.achieved ? 1 : 0),
     }),
     { total: 0, target: 0, current: 0, achieved: 0 },
@@ -523,7 +523,7 @@ export default function Goals() {
                     <CardContent className="space-y-2 pt-0 px-4 pb-4">
                       <div>
                         <div className="flex justify-between text-xs mb-1">
-                          <span className="font-semibold text-foreground tabular-nums">{formatCurrency(goal.current_amount)}</span>
+                          <span className="font-semibold text-foreground tabular-nums">{formatCurrency(goal.current_amount + goal.invested_via_goal)}</span>
                           <span className="text-muted-foreground tabular-nums">{formatCurrency(goal.target_amount)}</span>
                         </div>
                         <Progress value={pct} className="h-1.5"
@@ -538,13 +538,38 @@ export default function Goals() {
                         </div>
                         <div>
                           <p className="text-[10px] text-muted-foreground">Saved</p>
-                          <p className="text-xs font-semibold text-foreground tabular-nums">{formatCurrency(goal.current_amount)}</p>
+                          <p className="text-xs font-semibold text-foreground tabular-nums">
+                            {formatCurrency(goal.current_amount + goal.invested_via_goal)}
+                          </p>
+                          <p className="text-[9px] text-muted-foreground tabular-nums">
+                            {goal.current_amount > 0 && `${formatCurrency(goal.current_amount)} manual`}
+                            {goal.current_amount > 0 && goal.invested_via_goal > 0 && " + "}
+                            {goal.invested_via_goal > 0 && `${formatCurrency(goal.invested_via_goal)} invested`}
+                          </p>
                         </div>
                         <div>
                           <p className="text-[10px] text-muted-foreground">Remaining</p>
                           <p className="text-xs font-semibold text-foreground tabular-nums">{formatCurrency(goal.progress.remaining)}</p>
                         </div>
                       </div>
+
+                      {goal.invested_via_goal > 0 && (
+                        <div className="rounded-lg bg-chart-2/10 p-2.5">
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <TrendingUp size={12} className="text-chart-2" />
+                            <span className="text-[10px] text-muted-foreground font-medium">Linked Investments</span>
+                          </div>
+                          <p className="text-xs font-semibold text-foreground tabular-nums">{formatCurrency(goal.invested_via_goal)}</p>
+                          <div className="mt-1 space-y-0.5">
+                            {goal.linked_investments.map((inv) => (
+                              <div key={inv.id} className="flex items-center justify-between text-[10px] text-muted-foreground">
+                                <span className="truncate max-w-[140px]">{inv.name}</span>
+                                <span className="tabular-nums">{formatCurrency(inv.current_value)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
 
                       {goal.monthly_sip !== null && goal.monthly_sip !== undefined && (
                         <div className="rounded-lg bg-primary/5 p-2.5 text-center">

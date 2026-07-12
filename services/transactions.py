@@ -1,6 +1,6 @@
 from db import SessionLocal
 from models import Transaction
-from services.categories import categorize
+from services.categories import categorize, assign_group
 from services.common import _parse_date
 import pandas as pd
 from sqlalchemy import func
@@ -18,19 +18,21 @@ def get_transactions():
 
 def create_transaction(data: dict):
     session = SessionLocal()
-    cat = categorize(data.get("description", ""))
+    cat = data.get("category") or categorize(data.get("description", ""))
     raw_amount = float(data["amount"])
     tx_type = data.get("transaction_type", "expense" if raw_amount < 0 else "income")
     if tx_type in ("debit", "expense") and raw_amount > 0:
         raw_amount = -raw_amount
     elif tx_type in ("credit", "income") and raw_amount < 0:
         raw_amount = -raw_amount
+    group = assign_group(cat, data.get("description", ""))
     tx = Transaction(
         date=_parse_date(data["date"]),
         description=data.get("description"),
         amount=raw_amount,
         transaction_type=tx_type,
-        category=data.get("category") or cat,
+        category=cat,
+        group=group,
         balance=data.get("balance"),
     )
     session.add(tx)
@@ -55,12 +57,14 @@ def update_transaction(tx_id: int, data: dict):
     if not tx:
         session.close()
         return None
-    for key in ("date", "description", "amount", "transaction_type", "category", "balance"):
+    for key in ("date", "description", "amount", "transaction_type", "category", "balance", "group"):
         if key in data:
             if key == "date":
                 setattr(tx, key, _parse_date(data[key]))
             else:
                 setattr(tx, key, data[key])
+    if "category" in data:
+        tx.group = assign_group(data["category"], tx.description or "")
     if "amount" in data or "transaction_type" in data:
         raw_amount = tx.amount
         if tx.transaction_type in ("debit", "expense") and raw_amount > 0:
@@ -227,6 +231,7 @@ def apply_category_to_transactions(keyword: str, category: str):
     for tx in rows:
         if tx.category != category:
             tx.category = category
+            tx.group = assign_group(category, tx.description or "")
             count += 1
     session.commit()
     session.close()

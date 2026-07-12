@@ -7,7 +7,7 @@ import pytesseract
 from PIL import Image
 from db import SessionLocal
 from models import Transaction
-from services.categories import categorize
+from services.categories import categorize, assign_group
 from services.transactions import safe_float, _is_duplicate
 
 
@@ -65,7 +65,7 @@ _TRANSACTION_RE = re.compile(
     r"(\d{1,2}\s*[A-Z][a-z]{2}\s*,?\s*\d{4})\s*(.+)", re.MULTILINE
 )
 
-_AMOUNT_RE = re.compile(r"[₹%]?\s*([\d,]+)\s*$")
+_AMOUNT_RE = re.compile(r"[₹%]?\s*([\d,]+(?:\.\d+)?)\s*$")
 
 
 def _build_desc_fix_map(file_path: str) -> dict[str, str]:
@@ -222,12 +222,14 @@ def import_pdf_with_mapping(file_path: str, mapping: dict) -> int:
         if _is_duplicate(session, date_val, desc, amount):
             continue
 
+        cat = categorize(desc)
         db_tx = Transaction(
             date=date_val,
             description=desc,
             amount=amount,
             transaction_type=tx_type,
-            category=categorize(desc),
+            category=cat,
+            group=assign_group(cat, desc),
         )
         session.add(db_tx)
         count += 1

@@ -1,7 +1,7 @@
 from datetime import date
 from math import pow
 from db import SessionLocal
-from models import Goal
+from models import Goal, Investment
 from services.common import _parse_date
 
 DEFAULT_INFLATION = 6.0  # Indian context default
@@ -106,13 +106,18 @@ def contribute_to_goal(goal_id: int, amount: float):
 
 
 def _enrich_goal(goal: Goal):
-    pct = round((goal.current_amount / goal.target_amount) * 100, 1) if goal.target_amount else 0
-    remaining = max(goal.target_amount - goal.current_amount, 0)
+    session = SessionLocal()
+    linked_invs = session.query(Investment).filter(Investment.goal_id == goal.id, Investment.active == True).all()
+    session.close()
+    invested_via_goal = sum((i.current_value or 0) for i in linked_invs)
+    total_current = goal.current_amount + invested_via_goal
+    pct = round((total_current / goal.target_amount) * 100, 1) if goal.target_amount else 0
+    remaining = max(goal.target_amount - total_current, 0)
     days_left = (goal.target_date - date.today()).days if goal.target_date else None
     on_track = _compute_on_track(goal)
     months_left = max(round(days_left / 30.0), 0) if days_left else None
     monthly_sip = calculate_sip(goal.target_amount, months_left,
-                                goal.current_amount, goal.expected_return) if months_left else None
+                                total_current, goal.expected_return) if months_left else None
     inflation_adj = inflation_adjusted_target(goal.target_amount, months_left) if months_left else None
     return {
         "id": goal.id,
@@ -120,6 +125,7 @@ def _enrich_goal(goal: Goal):
         "goal_type": goal.goal_type,
         "target_amount": goal.target_amount,
         "current_amount": goal.current_amount,
+        "invested_via_goal": round(invested_via_goal, 2),
         "target_date": goal.target_date,
         "category": goal.category,
         "notes": goal.notes,
@@ -133,6 +139,16 @@ def _enrich_goal(goal: Goal):
         },
         "monthly_sip": monthly_sip,
         "inflation_adjusted_target": inflation_adj,
+        "linked_investments": [
+            {
+                "id": inv.id,
+                "name": inv.name,
+                "amount_invested": inv.amount_invested,
+                "current_value": inv.current_value,
+                "investment_type": inv.investment_type,
+            }
+            for inv in linked_invs
+        ],
     }
 
 

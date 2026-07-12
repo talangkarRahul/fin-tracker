@@ -3,6 +3,7 @@ from services import (
     get_category_rules, create_category_rule, delete_category_rule,
     get_unique_descriptions, get_uncategorized_descriptions, bulk_categorize_by_description,
 )
+from services.categories import assign_group
 from llm_classifier import classify_descriptions
 from routes.common import serialize
 
@@ -38,6 +39,12 @@ def api_auto_categorize_preview():
     if not descs:
         return {"predictions": []}
     predictions = classify_descriptions(descs)
+    # Restore original descriptions — LLM may truncate/modify them
+    for i, p in enumerate(predictions):
+        if i < len(descs):
+            p["description"] = descs[i]
+        if "group" not in p or p["group"] is None:
+            p["group"] = assign_group(p.get("category", ""), p.get("description", ""))
     lookup = {d["description"]: d["count"] for d in descriptions}
     return {
         "predictions": [

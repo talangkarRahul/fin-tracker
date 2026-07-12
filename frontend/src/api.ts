@@ -77,12 +77,18 @@ export interface Summary {
 export interface Goal {
   id: number; name: string; goal_type: string
   target_amount: number; current_amount: number
+  invested_via_goal: number
   target_date: string; category: string | null
   notes: string | null; achieved: boolean
   expected_return: number
   progress: { pct: number; remaining: number; days_left: number; on_track: boolean | null }
   monthly_sip: number | null
   inflation_adjusted_target: number | null
+  linked_investments: Array<{
+    id: number; name: string
+    amount_invested: number; current_value: number
+    investment_type: string
+  }>
 }
 
 export interface Budget {
@@ -109,7 +115,10 @@ export interface Transaction {
   id: number; date: string; description: string
   amount: number; balance: number | null
   transaction_type: string; category: string
+  group: string | null
 }
+
+
 
 export interface MonthlyRow {
   month: string; income: number; expenses: number; savings: number; savings_rate: number
@@ -237,8 +246,8 @@ export const api = {
   },
   autoCategorize: {
     preview: () => get<{ predictions: AIPrediction[] }>("/auto-categorize/preview"),
-    apply: (mappings: { description: string; category: string }[]) =>
-      post("/auto-categorize/apply", { mappings }),
+    apply: (mappings: { description: string; category: string; group?: string }[]) =>
+      post<{ updated: number; rules_created: number }>("/auto-categorize/apply", { mappings }),
   },
   getProfile: () => get<FinancialProfile>("/financial-profile"),
   updateProfile: (data: Partial<FinancialProfile>) => put<FinancialProfile>("/financial-profile", data),
@@ -247,6 +256,7 @@ export const api = {
 export interface AIPrediction {
   description: string
   category: string
+  group: string | null
   confidence: number
   count: number
 }

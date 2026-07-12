@@ -11,6 +11,8 @@ const CATEGORIES = [
   "SALARY", "RENT", "UPI", "TAXES", "TRAVEL", "INCOME", "OTHER",
 ]
 
+const GROUPS = ["NEEDS", "WANTS", "INVESTMENT", "NOT_APPLICABLE"]
+
 function LoadingSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
@@ -98,7 +100,7 @@ export default function Categories() {
     setApplying(true)
     try {
       const result = await api.autoCategorize.apply(
-        selected.map((p) => ({ description: p.description, category: p.category }))
+        selected.map((p) => ({ description: p.description, category: p.category, group: p.group || undefined }))
       )
       alert(`Updated ${result.updated} transactions, created ${result.rules_created} rules`)
       setPredictions(null)
@@ -179,7 +181,8 @@ export default function Categories() {
                       </th>
                       <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Description</th>
                       <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">#</th>
-                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Predicted</th>
+                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Predicted Category</th>
+                      <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Group</th>
                       <th className="text-left py-2.5 px-3 font-medium text-muted-foreground">Confidence</th>
                     </tr>
                   </thead>
@@ -206,6 +209,18 @@ export default function Categories() {
                             className="w-32 rounded-md border border-border bg-card px-2 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-ring"
                             placeholder="Type or pick..."
                           />
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <select
+                            value={p.group || ""}
+                            onChange={(e) => updatePrediction(p.description, { group: e.target.value || null })}
+                            className="w-28 rounded-md border border-border bg-card px-2 py-1 text-[11px] focus:outline-none focus:ring-2 focus:ring-ring"
+                          >
+                            <option value="">Auto</option>
+                            {GROUPS.map((g) => (
+                              <option key={g} value={g}>{g}</option>
+                            ))}
+                          </select>
                         </td>
                         <td className="py-2.5 px-3">
                           <ConfidenceBadge value={p.confidence} />

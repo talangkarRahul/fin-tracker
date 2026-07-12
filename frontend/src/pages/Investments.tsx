@@ -3,10 +3,12 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card"
 import { Badge } from "../components/ui/badge"
 import { Button } from "../components/ui/button"
 import { formatCurrency } from "../lib/format"
+import { api } from "../api"
+import type { Goal } from "../api"
 import {
   BarChart3, TrendingUp, Landmark, PiggyBank, Briefcase,
   Building2, Award, ScrollText, Plus, X, Check, Pencil, Trash2,
-  CandlestickChart, Upload, FileSpreadsheet,
+  CandlestickChart, Upload, FileSpreadsheet, Target,
 } from "lucide-react"
 
 interface InvestmentItem {
@@ -22,6 +24,7 @@ interface InvestmentItem {
   sip_frequency: string | null
   notes: string | null
   active: boolean
+  goal_id: number | null
 }
 
 interface InvestmentSummary {
@@ -86,6 +89,7 @@ interface FormData {
   sip_frequency: string
   notes: string
   active: boolean
+  goal_id: string
 }
 
 const emptyForm: FormData = {
@@ -98,14 +102,16 @@ const emptyForm: FormData = {
   sip_frequency: "monthly",
   notes: "",
   active: true,
+  goal_id: "",
 }
 
-function InvForm({ data, onChange, onSubmit, onCancel, submitLabel }: {
+function InvForm({ data, onChange, onSubmit, onCancel, submitLabel, goals }: {
   data: FormData
   onChange: (d: FormData) => void
   onSubmit: () => void
   onCancel?: () => void
   submitLabel: string
+  goals?: Goal[]
 }) {
   return (
     <div className="space-y-3">
@@ -165,6 +171,16 @@ function InvForm({ data, onChange, onSubmit, onCancel, submitLabel }: {
         </div>
       </div>
       <div>
+        <label className="block text-xs font-medium text-foreground mb-1">Linked Goal</label>
+        <select value={data.goal_id} onChange={(e) => onChange({ ...data, goal_id: e.target.value })}
+          className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+          <option value="">None</option>
+          {(goals || []).map((g) => (
+            <option key={g.id} value={String(g.id)}>{g.name}</option>
+          ))}
+        </select>
+      </div>
+      <div>
         <label className="block text-xs font-medium text-foreground mb-1">Notes</label>
         <textarea value={data.notes} onChange={(e) => onChange({ ...data, notes: e.target.value })}
           className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" rows={2} />
@@ -201,12 +217,14 @@ export default function Investments() {
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
   const [importing, setImporting] = useState(false)
   const [csvFile, setCsvFile] = useState<File | null>(null)
+  const [goals, setGoals] = useState<Goal[]>([])
 
   async function load() {
     setLoading(true)
     try {
-      const [inv, summ] = await Promise.all([fetchInvestments(), fetchSummary()])
+      const [inv, summ, goalsData] = await Promise.all([fetchInvestments(), fetchSummary(), api.goals.list()])
       setItems(inv)
+      setGoals(goalsData)
       setSummary(summ)
     } finally {
       setLoading(false)
@@ -233,6 +251,7 @@ export default function Investments() {
       sip_frequency: form.sip_frequency || undefined,
       notes: form.notes || undefined,
       active: form.active,
+      goal_id: form.goal_id ? parseInt(form.goal_id) : undefined,
     })
     resetForm()
     await load()
@@ -250,6 +269,7 @@ export default function Investments() {
       sip_frequency: form.sip_frequency || undefined,
       notes: form.notes || undefined,
       active: form.active,
+      goal_id: form.goal_id ? parseInt(form.goal_id) : undefined,
     })
     resetForm()
     await load()
@@ -271,6 +291,7 @@ export default function Investments() {
       sip_frequency: item.sip_frequency || "monthly",
       notes: item.notes || "",
       active: item.active,
+      goal_id: item.goal_id ? String(item.goal_id) : "",
     })
     setEditingId(item.id)
     setShowForm(false)
@@ -565,7 +586,7 @@ export default function Investments() {
             <CardTitle className="text-sm font-semibold">New Investment</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            <InvForm data={form} onChange={setForm} onSubmit={handleCreate} submitLabel="Create" onCancel={resetForm} />
+            <InvForm data={form} onChange={setForm} onSubmit={handleCreate} submitLabel="Create" onCancel={resetForm} goals={goals} />
           </CardContent>
         </Card>
       )}
@@ -599,7 +620,7 @@ export default function Investments() {
                       <CardTitle className="text-sm font-semibold">Edit Investment</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-0 px-4 pb-4">
-                      <InvForm data={form} onChange={setForm} onSubmit={() => handleUpdate(item.id)} onCancel={resetForm} submitLabel="Save" />
+                      <InvForm data={form} onChange={setForm} onSubmit={() => handleUpdate(item.id)} onCancel={resetForm} submitLabel="Save" goals={goals} />
                     </CardContent>
                   </>
                 ) : (
@@ -642,6 +663,15 @@ export default function Investments() {
                       </div>
                     </div>
                     {item.notes && <p className="text-xs text-muted-foreground mt-1 italic">{item.notes}</p>}
+                    {item.goal_id && (() => {
+                      const goal = goals.find((g) => g.id === item.goal_id)
+                      return goal ? (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Target size={12} className="text-primary" />
+                          <span className="text-xs text-muted-foreground">Goal: <span className="font-medium text-foreground">{goal.name}</span></span>
+                        </div>
+                      ) : null
+                    })()}
                     <div className="flex gap-2 mt-3 pt-2 border-t border-border opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="outline" size="sm" onClick={() => startEdit(item)} className="h-7 text-[10px] px-2">
                         <Pencil size={11} className="mr-0.5" />

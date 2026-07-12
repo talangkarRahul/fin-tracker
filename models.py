@@ -23,6 +23,7 @@ class Transaction(Base):
     balance = Column(Float)
     transaction_type = Column(String(20))
     category = Column(String(50))
+    group = Column(String(20))
 
 
 class Budget(Base):
@@ -145,6 +146,7 @@ class Investment(Base):
     sip_frequency = Column(String(20))
     notes = Column(Text)
     active = Column(Boolean, default=True)
+    goal_id = Column(Integer, nullable=True)
 
 
 class RetirementPlan(Base):

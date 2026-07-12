@@ -2,6 +2,62 @@ from db import SessionLocal
 from models import Transaction, CategoryRule
 from sqlalchemy import func
 
+GROUPS = ["NEEDS", "WANTS", "INVESTMENT", "NOT_APPLICABLE"]
+
+DIRECT_GROUP_MAP = {
+    "INVESTMENT": "INVESTMENT",
+    "UTILITIES": "NEEDS",
+    "RENT": "NEEDS",
+    "LOAN_EMI": "NEEDS",
+    "INSURANCE": "NEEDS",
+    "HEALTHCARE": "NEEDS",
+    "TAXES": "NEEDS",
+    "FUEL": "NEEDS",
+    "FEES_CHARGES": "NEEDS",
+    "ENTERTAINMENT": "WANTS",
+    "SUBSCRIPTION": "WANTS",
+    "TRAVEL": "WANTS",
+    "GIFTS_DONATIONS": "WANTS",
+    "SALARY": "NOT_APPLICABLE",
+    "INCOME": "NOT_APPLICABLE",
+    "CASH_WITHDRAWAL": "NOT_APPLICABLE",
+}
+
+
+def assign_group(category: str | None, description: str = "") -> str | None:
+    if not category:
+        return None
+    cat = category.upper().strip()
+    if cat in DIRECT_GROUP_MAP:
+        return DIRECT_GROUP_MAP[cat]
+    desc_lower = description.lower()
+    if cat == "FOOD":
+        for kw in ["zomato", "swiggy", "kfc", "restaurant", "cafe", "hotel", "food delivery", "dining"]:
+            if kw in desc_lower:
+                return "WANTS"
+        return "NEEDS"
+    if cat == "SHOPPING":
+        for kw in ["myntra", "ajio", "zudio", "meesho", "ikea", "fashion", "clothing"]:
+            if kw in desc_lower:
+                return "WANTS"
+        return "WANTS"
+    if cat == "TRANSPORT":
+        for kw in ["ola", "uber", "rapido"]:
+            if kw in desc_lower:
+                return "WANTS"
+        return "NEEDS"
+    if cat == "PERSONAL_SERVICES":
+        return "NEEDS"
+    if cat == "PERSONAL_CARE":
+        return "NEEDS"
+    if cat == "EDUCATION":
+        return "NEEDS"
+    if cat == "TRANSFER":
+        return "NOT_APPLICABLE"
+    if cat == "OTHER":
+        return None
+    return None
+
 
 def categorize(description):
     desc = description.lower()
@@ -113,6 +169,7 @@ def bulk_categorize_by_description(mappings: list[dict]):
     for item in mappings:
         desc = item["description"]
         category = item["category"].strip().upper()
+        group = (item.get("group") or "").upper().strip() or None
         if not desc or not category:
             continue
         rows = (
@@ -121,8 +178,9 @@ def bulk_categorize_by_description(mappings: list[dict]):
             .all()
         )
         for tx in rows:
-            if tx.category != category:
+            if tx.category != category or tx.group != group:
                 tx.category = category
+                tx.group = group or assign_group(category, tx.description or "")
                 updated += 1
         keyword = desc.lower().strip()
         existing = session.query(CategoryRule).filter(CategoryRule.keyword == keyword).first()
@@ -133,3 +191,6 @@ def bulk_categorize_by_description(mappings: list[dict]):
     session.commit()
     session.close()
     return updated, rules_created
+
+
+

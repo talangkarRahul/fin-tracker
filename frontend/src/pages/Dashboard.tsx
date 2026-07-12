@@ -11,6 +11,7 @@ import {
 import {
   Wallet, Heart, Siren, PiggyBank, TrendingUp, TrendingDown,
   Shield, ArrowUpRight, ArrowDownRight, Sparkles, ChevronRight,
+  Layers,
 } from "lucide-react"
 
 const CHART_COLORS = [
@@ -79,6 +80,7 @@ export default function Dashboard() {
   const [trends, setTrends] = useState<any[]>([])
   const [budgetVsActual, setBudgetVsActual] = useState<any[]>([])
   const [recentTxns, setRecentTxns] = useState<any[]>([])
+  const [groupData, setGroupData] = useState<any[]>([])
 
   useEffect(() => {
     loadData()
@@ -94,13 +96,14 @@ export default function Dashboard() {
       if (dt) params.set("date_to", dt)
       const qs = params.toString()
 
-      const [overviewRes, monthlyRes, catRes, trendRes, bvaRes, txnRes] = await Promise.all([
+      const [overviewRes, monthlyRes, catRes, trendRes, bvaRes, txnRes, groupRes] = await Promise.all([
         fetch(`/api/dashboard/overview${qs ? `?${qs}` : ""}`).then((r) => r.json()),
         fetch(`/api/reports/monthly?months=12${qs ? `&${qs}` : ""}`).then((r) => r.json()),
         fetch(`/api/reports/category${qs ? `?${qs}` : ""}`).then((r) => r.json()),
         fetch(`/api/reports/trends?months=6${qs ? `&${qs}` : ""}`).then((r) => r.json()),
         fetch(`/api/reports/budget-vs-actual${qs ? `&${qs}` : ""}`).then((r) => r.json()),
         fetch(`/api/transactions`).then((r) => r.json()),
+        fetch(`/api/reports/group${qs ? `?${qs}` : ""}`).then((r) => r.json()),
       ])
 
       setOverview(overviewRes)
@@ -109,6 +112,7 @@ export default function Dashboard() {
       setTrends(trendRes)
       setBudgetVsActual(bvaRes)
       setRecentTxns((txnRes || []).slice(0, 8))
+      setGroupData(groupRes || [])
     } finally {
       setLoading(false)
     }
@@ -425,7 +429,7 @@ export default function Dashboard() {
               <div key={g.id}>
                 <div className="flex justify-between text-sm mb-1">
                   <span className="font-medium text-foreground">{g.name}</span>
-                  <span className="text-muted-foreground text-xs tabular-nums">{formatCurrency(g.current_amount)} / {formatCurrency(g.target_amount)}</span>
+                  <span className="text-muted-foreground text-xs tabular-nums">{formatCurrency(g.current_amount + (g.invested_via_goal || 0))} / {formatCurrency(g.target_amount)}</span>
                 </div>
                 <Progress value={g.progress.pct} className="h-2" barClassName={g.achieved ? "bg-success" : "bg-primary"} />
               </div>
@@ -551,6 +555,76 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Row 5: Group Breakdown — Compact progress bars */}
+      {groupData.length > 0 && (() => {
+        const total = groupData.reduce((s: number, c: any) => s + c.amount, 0)
+        const groupMeta: Record<string, { label: string; target: number; color: string; bg: string }> = {
+          NEEDS: { label: "Needs", target: 50, color: "bg-emerald-500", bg: "bg-emerald-500/10" },
+          WANTS: { label: "Wants", target: 30, color: "bg-amber-500", bg: "bg-amber-500/10" },
+          INVESTMENT: { label: "Investment", target: 20, color: "bg-blue-500", bg: "bg-blue-500/10" },
+          NOT_APPLICABLE: { label: "Not Applicable", target: 0, color: "bg-gray-400", bg: "bg-gray-400/10" },
+        }
+        const sorted = [...groupData].sort((a: any, b: any) => b.amount - a.amount)
+        return (
+          <Card className="relative overflow-hidden">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-chart-2 to-chart-2/60 rounded-l-xl" />
+            <CardHeader className="pb-3 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Layers size={14} />
+                  50/30/20 Breakdown
+                </CardTitle>
+                <span className="text-xs text-muted-foreground tabular-nums">{formatCurrency(total)}</span>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 px-4 pb-4 space-y-3">
+              {sorted.map((entry: any) => {
+                const meta = groupMeta[entry.group] || { label: entry.group, target: 0, color: "bg-gray-400", bg: "bg-gray-400/10" }
+                const pct = total > 0 ? (entry.amount / total) * 100 : 0
+                const diff = pct - meta.target
+                return (
+                  <div key={entry.group} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${meta.color}`} />
+                        <span className="font-medium text-foreground">{meta.label}</span>
+                        {meta.target > 0 && (
+                          <span className="text-muted-foreground/60 text-[10px]">target {meta.target}%</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 tabular-nums">
+                        <span className="text-muted-foreground">{formatCurrency(entry.amount)}</span>
+                        <span className="font-semibold text-foreground">{pct.toFixed(1)}%</span>
+                        {meta.target > 0 && (
+                          <span className={`text-[10px] ${diff > 5 ? "text-destructive" : diff < -5 ? "text-warning" : "text-success"}`}>
+                            {diff > 0 ? "+" : ""}{diff.toFixed(1)}%
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="relative h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-700 ease-out ${meta.color}`}
+                        style={{ width: `${pct}%` }}
+                      />
+                      {meta.target > 0 && (
+                        <div
+                          className="absolute top-0 bottom-0 w-0.5 bg-foreground/40"
+                          style={{ left: `${meta.target}%` }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              <p className="text-[10px] text-muted-foreground/60 pt-1 border-t border-border/50">
+                Vertical line on each bar shows the 50/30/20 target percentage.
+              </p>
+            </CardContent>
+          </Card>
+        )
+      })()}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="relative overflow-hidden">
