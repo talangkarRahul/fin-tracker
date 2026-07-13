@@ -197,7 +197,7 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
         if (v) clean[k] = v
       }
       const fn = mode === "csv" ? api.importCSV : api.importPDF
-      const result = await fn(file, clean as ColumnMapping)
+      const result = await fn(file, clean as unknown as ColumnMapping)
       onImported()
       alert(`Imported ${result.imported} transactions`)
       onClose()

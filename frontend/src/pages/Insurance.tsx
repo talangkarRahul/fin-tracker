@@ -5,7 +5,7 @@ import { Button } from "../components/ui/button"
 import { formatCurrency } from "../lib/format"
 import {
   Shield, Heart, Landmark, TrendingUp, Car, Bike, Home, Plane,
-  Activity, AlertTriangle, FileText, Plus, X, Check, Pencil, Trash2, Calendar,
+  Activity, AlertTriangle, FileText, Plus, X, Check, Pencil, Trash2,
 } from "lucide-react"
 
 interface InsurancePolicy {
@@ -30,20 +30,6 @@ interface InsuranceSummary {
   by_type: Record<string, { count: number; total_cover: number }>
 }
 
-const PT_ICONS: Record<string, React.ReactNode> = {
-  term_life: <Shield size={14} />,
-  health: <Heart size={14} />,
-  endowment: <Landmark size={14} />,
-  ulip: <TrendingUp size={14} />,
-  car: <Car size={14} />,
-  bike: <Bike size={14} />,
-  home: <Home size={14} />,
-  travel: <Plane size={14} />,
-  critical_illness: <Activity size={14} />,
-  personal_accident: <AlertTriangle size={14} />,
-  other: <FileText size={14} />,
-}
-
 const POLICY_TYPES = [
   { value: "term_life", label: "Term Life", icon: <Shield size={14} /> },
   { value: "health", label: "Health", icon: <Heart size={14} /> },
@@ -58,7 +44,6 @@ const POLICY_TYPES = [
   { value: "other", label: "Other", icon: <FileText size={14} /> },
 ]
 
-const PT_MAP = Object.fromEntries(POLICY_TYPES.map((t) => [t.value, t]))
 const PT_DISPLAY = Object.fromEntries(POLICY_TYPES.map((t) => [t.value, { label: t.label, icon: t.icon }]))
 
 const FREQ_LABELS: Record<string, string> = {

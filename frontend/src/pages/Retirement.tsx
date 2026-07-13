@@ -4,8 +4,8 @@ import { Progress } from "../components/ui/progress"
 import { Button } from "../components/ui/button"
 import { formatCurrency } from "../lib/format"
 import {
-  PiggyBank, CalendarDays, TrendingUp, Target, Clock,
-  Banknote, Settings, Check, X, Sparkles, Calculator,
+  PiggyBank, CalendarDays, Clock,
+  Banknote, Settings, Check, X, Calculator,
   ArrowRightLeft, Info, ArrowRight
 } from "lucide-react"
 

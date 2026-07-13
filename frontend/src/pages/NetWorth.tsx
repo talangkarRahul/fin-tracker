@@ -6,7 +6,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, Legend,
 } from "recharts"
-import { TrendingUp, RefreshCw, ArrowUpRight, ArrowDownRight, Equal, SortAsc, Wallet } from "lucide-react"
+import { TrendingUp, RefreshCw, ArrowUpRight, ArrowDownRight, Equal, SortAsc } from "lucide-react"
 
 interface NWItem {
   label: string
@@ -242,7 +242,7 @@ export default function NetWorth() {
               <BarChart data={barData} barSize={60}>
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => formatCurrency(value)} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(value: unknown) => formatCurrency(Number(value))} />
                 <Bar dataKey="amount" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -267,7 +267,7 @@ export default function NetWorth() {
                 <LineChart data={historyData}>
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => formatCurrency(value)} />
+                  <Tooltip contentStyle={tooltipStyle} formatter={(value: unknown) => formatCurrency(Number(value))} />
                   <Legend wrapperStyle={{ fontSize: "11px" }} />
                   <Line type="monotone" dataKey="net_worth" stroke="hsl(var(--chart-1))" strokeWidth={2} name="Net Worth" dot={false} />
                   <Line type="monotone" dataKey="total_assets" stroke="hsl(var(--chart-3))" strokeWidth={2} name="Assets" dot={false} />

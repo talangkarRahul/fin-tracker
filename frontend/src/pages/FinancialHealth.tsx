@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "../components/ui/card"
 import { Progress } from "../components/ui/progress"
 import { Button } from "../components/ui/button"
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts"
-import { Activity, RefreshCw, ShieldCheck, TrendingUp, Heart, Landmark, PiggyBank, Target, DollarSign, AlertTriangle, Sparkles } from "lucide-react"
+import { Activity, RefreshCw, TrendingUp, Heart, Landmark, PiggyBank, Target, DollarSign, Sparkles } from "lucide-react"
 
 interface ComponentScore {
   score: number
@@ -181,7 +181,7 @@ export default function FinancialHealth() {
               <BarChart data={chartData} layout="vertical" barSize={20}>
                 <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={110} />
-                <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [`${Math.round(value)}/100`, "Score"]} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(value: unknown) => [`${Math.round(Number(value))}/100`, "Score"]} />
                 <Bar dataKey="score" radius={[0, 6, 6, 0]}>
                   {chartData.map((_, i) => (
                     <Cell key={i} fill={`hsl(var(--chart-${(i % 8) + 1}))`} />
