@@ -106,9 +106,13 @@ export default function Profile() {
     setSaving(true)
     try {
       const filtered = assets.filter((a) => !INVESTMENT_LINKED_LABELS.has(a.label))
+      const existing = profile.existing_assets ?? {}
+      const investmentLinked = Object.fromEntries(
+        Object.entries(existing).filter(([label]) => INVESTMENT_LINKED_LABELS.has(label))
+      )
       await api.updateProfile({
         ...profile,
-        existing_assets: pairsToKv(filtered),
+        existing_assets: { ...investmentLinked, ...pairsToKv(filtered) },
         existing_liabilities: pairsToKv(liabilities),
       })
       alert("Profile saved")

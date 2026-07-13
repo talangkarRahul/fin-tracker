@@ -166,7 +166,7 @@ function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-background">
-        <nav className="sticky top-0 z-50 bg-card/80 backdrop-blur-md border-b border-border shadow-sm">
+        <nav className="sticky top-0 z-50 glass-strong shadow-sm">
           <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
             <NavLink to="/" className="flex items-center gap-2 font-bold text-lg tracking-tight text-foreground">
               <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">

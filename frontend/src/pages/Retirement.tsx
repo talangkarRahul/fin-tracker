@@ -6,7 +6,7 @@ import { formatCurrency } from "../lib/format"
 import {
   PiggyBank, CalendarDays, TrendingUp, Target, Clock,
   Banknote, Settings, Check, X, Sparkles, Calculator,
-  ArrowRightLeft, Info,
+  ArrowRightLeft, Info, ArrowRight
 } from "lucide-react"
 
 interface RetirementData {
@@ -130,6 +130,30 @@ export default function Retirement() {
           {editing ? "Cancel" : "Adjust Assumptions"}
         </Button>
       </div>
+
+      {data.monthly_expenses === 0 && (
+        <Card className="relative overflow-hidden border-dashed border-border/50">
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-primary/60 rounded-l-xl" />
+          <CardContent className="pt-5 pb-5 px-4 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="p-2.5 rounded-full bg-primary/10 text-primary">
+                <Settings size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Set Up Your Profile First</h3>
+                <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                  Your retirement plan is calculated from your age and monthly expenses.
+                  Fill in your financial profile to get a personalized retirement roadmap.
+                </p>
+              </div>
+              <a href="/profile"
+                className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 underline underline-offset-2">
+                Go to Profile <ArrowRight size={12} />
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Progress card */}
       <Card className="relative overflow-hidden">

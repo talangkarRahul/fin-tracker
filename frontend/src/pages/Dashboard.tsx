@@ -680,7 +680,7 @@ export default function Dashboard() {
                 const last = trends[trends.length - 1]
                 const change = first?.amount ? ((last.amount - first.amount) / first.amount * 100) : 0
                 return (
-                  <span className={`text-[10px] font-medium flex items-center gap-1 ${change <= 0 ? "text-success" : "text-destructive"}`}>
+                  <span className={`text-[10px] font-medium flex items-center gap-1 px-2 py-0.5 rounded-full ${change <= 0 ? "badge-positive" : "badge-negative"}`}>
                     {change <= 0 ? <TrendingDown size={10} /> : <TrendingUp size={10} />}
                     {Math.abs(change).toFixed(0)}% vs start
                   </span>
