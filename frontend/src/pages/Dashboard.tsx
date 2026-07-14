@@ -96,14 +96,16 @@ export default function Dashboard() {
       if (dt) params.set("date_to", dt)
       const qs = params.toString()
 
+      const safe = (p: Promise<any>) => p.catch(() => null)
+
       const [overviewRes, monthlyRes, catRes, trendRes, bvaRes, txnRes, groupRes] = await Promise.all([
-        fetch(`/api/dashboard/overview${qs ? `?${qs}` : ""}`).then((r) => r.json()),
-        fetch(`/api/reports/monthly?months=12${qs ? `&${qs}` : ""}`).then((r) => r.json()),
-        fetch(`/api/reports/category${qs ? `?${qs}` : ""}`).then((r) => r.json()),
-        fetch(`/api/reports/trends?months=6${qs ? `&${qs}` : ""}`).then((r) => r.json()),
-        fetch(`/api/reports/budget-vs-actual${qs ? `&${qs}` : ""}`).then((r) => r.json()),
-        fetch(`/api/transactions`).then((r) => r.json()),
-        fetch(`/api/reports/group${qs ? `?${qs}` : ""}`).then((r) => r.json()),
+        safe(fetch(`/api/dashboard/overview${qs ? `?${qs}` : ""}`).then((r) => r.json())),
+        safe(fetch(`/api/reports/monthly?months=12${qs ? `&${qs}` : ""}`).then((r) => r.json())),
+        safe(fetch(`/api/reports/category${qs ? `?${qs}` : ""}`).then((r) => r.json())),
+        safe(fetch(`/api/reports/trends?months=6${qs ? `&${qs}` : ""}`).then((r) => r.json())),
+        safe(fetch(`/api/reports/budget-vs-actual${qs ? `?${qs}` : ""}`).then((r) => r.json())),
+        safe(fetch(`/api/transactions`).then((r) => r.json())),
+        safe(fetch(`/api/reports/group${qs ? `?${qs}` : ""}`).then((r) => r.json())),
       ])
 
       setOverview(overviewRes)
