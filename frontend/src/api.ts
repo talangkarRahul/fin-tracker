@@ -70,6 +70,24 @@ async function importPDF(file: File, mapping: ColumnMapping): Promise<{ status: 
   return res.json()
 }
 
+async function importBankPDFPreview(
+  file: File
+): Promise<{ columns: string[]; rows: string[][] }> {
+  const form = new FormData()
+  form.append("file", file)
+  const res = await fetch(`${BASE}/import/bank-pdf-preview`, { method: "POST", body: form })
+  if (!res.ok) throw new Error(`POST /import/bank-pdf-preview: ${res.status}`)
+  return res.json()
+}
+
+async function importBankPDF(file: File): Promise<{ status: string; imported: number }> {
+  const form = new FormData()
+  form.append("file", file)
+  const res = await fetch(`${BASE}/import/bank-pdf`, { method: "POST", body: form })
+  if (!res.ok) throw new Error(`POST /import/bank-pdf: ${res.status}`)
+  return res.json()
+}
+
 export interface Summary {
   income: number; expenses: number; savings: number
 }
@@ -165,6 +183,8 @@ export const api = {
   importCSV,
   importPDFPreview,
   importPDF,
+  importBankPDFPreview,
+  importBankPDF,
   goals: {
     list: () => get<Goal[]>("/goals"),
     get: (id: number) => get<Goal>(`/goals/${id}`),

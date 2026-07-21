@@ -6,6 +6,7 @@ from services import (
     import_csv_generic, import_icici_csv,
 )
 from services.pdf_import import parse_pdf_preview, import_pdf_with_mapping
+from services.extract_transactions import preview_bank_pdf, import_bank_pdf
 from routes.common import serialize
 
 router = APIRouter()
@@ -67,4 +68,24 @@ async def api_import_pdf(file: UploadFile = File(...), mapping: str = Form("")):
         f.write(await file.read())
     mapping_dict = json.loads(mapping)
     count = import_pdf_with_mapping(file_path, mapping_dict)
+    return {"status": "ok", "file": file.filename, "imported": count}
+
+
+@router.post("/api/import/bank-pdf-preview")
+async def api_import_bank_pdf_preview(file: UploadFile = File(...)):
+    os.makedirs("uploads", exist_ok=True)
+    file_path = f"uploads/{file.filename}"
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+    result = preview_bank_pdf(file_path)
+    return result
+
+
+@router.post("/api/import/bank-pdf")
+async def api_import_bank_pdf(file: UploadFile = File(...)):
+    os.makedirs("uploads", exist_ok=True)
+    file_path = f"uploads/{file.filename}"
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+    count = import_bank_pdf(file_path)
     return {"status": "ok", "file": file.filename, "imported": count}

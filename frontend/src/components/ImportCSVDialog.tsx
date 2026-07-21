@@ -30,7 +30,7 @@ interface Props {
   onImported: () => void
 }
 
-type ImportMode = "csv" | "pdf"
+type ImportMode = "csv" | "pdf" | "bank-pdf"
 
 export default function ImportCSVDialog({ onClose, onImported }: Props) {
   const [mode, setMode] = useState<ImportMode>("csv")
@@ -105,7 +105,7 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
         setMapping(auto)
       }
       reader.readAsText(f)
-    } else {
+    } else if (mode === "pdf") {
       setPdfParsing(true)
       try {
         const result = await api.importPDFPreview(f)
@@ -153,6 +153,35 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
       } finally {
         setPdfParsing(false)
       }
+    } else {
+      // bank-pdf mode
+      setPdfParsing(true)
+      try {
+        const result = await api.importBankPDFPreview(f)
+        if (result.columns.length === 0) {
+          setError("Could not extract any transactions from this PDF. Try a different bank statement.")
+          return
+        }
+        setColumns(result.columns)
+        setPreview(result.rows)
+
+        // Bank PDF extractor returns: Date, Description, Ref No, Debit, Credit, Balance
+        // No manual mapping needed — auto-configure
+        setMapping({
+          date_column: "Date",
+          description_column: "Description",
+          amount_column: "",
+          debit_column: "Debit",
+          credit_column: "Credit",
+          balance_column: "Balance",
+          date_format: "dayfirst",
+        })
+        setUseSplit(true)
+      } catch {
+        setError("Failed to parse bank PDF. The format may not be supported yet.")
+      } finally {
+        setPdfParsing(false)
+      }
     }
   }
 
@@ -192,12 +221,17 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
     setImporting(true)
     setError(null)
     try {
-      const clean: Record<string, string> = {}
-      for (const [k, v] of Object.entries(mapping)) {
-        if (v) clean[k] = v
+      let result: { imported: number }
+      if (mode === "bank-pdf") {
+        result = await api.importBankPDF(file)
+      } else {
+        const clean: Record<string, string> = {}
+        for (const [k, v] of Object.entries(mapping)) {
+          if (v) clean[k] = v
+        }
+        const fn = mode === "csv" ? api.importCSV : api.importPDF
+        result = await fn(file, clean as unknown as ColumnMapping)
       }
-      const fn = mode === "csv" ? api.importCSV : api.importPDF
-      const result = await fn(file, clean as unknown as ColumnMapping)
       onImported()
       alert(`Imported ${result.imported} transactions`)
       onClose()
@@ -210,6 +244,7 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
 
   function isReady(): boolean {
     if (!file) return false
+    if (mode === "bank-pdf") return true
     if (!mapping.date_column || !mapping.description_column) return false
     if (useSplit) {
       return !!mapping.debit_column || !!mapping.credit_column
@@ -250,6 +285,15 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
               }`}
             >
               PDF (GPay)
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("bank-pdf")}
+              className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+                mode === "bank-pdf" ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"
+              }`}
+            >
+              PDF (Bank)
             </button>
           </div>
 
@@ -302,8 +346,14 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
                     </tbody>
                   </table>
                 </div>
+                {mode === "bank-pdf" && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Transactions are auto-extracted and categorized. No manual mapping needed.
+                  </p>
+                )}
               </div>
 
+              {mode !== "bank-pdf" && (
               <div className="space-y-4">
                 <h4 className="text-sm font-medium text-foreground">Column Mapping</h4>
 
@@ -358,6 +408,7 @@ export default function ImportCSVDialog({ onClose, onImported }: Props) {
                   </select>
                 </div>
               </div>
+              )}
             </>
           )}
 
